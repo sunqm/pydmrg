@@ -15,7 +15,7 @@ class StateInfo(object):
         self.leftUnMapQuanta = []
         self.rightUnMapQuanta = []
 
-    def refresh_by(self, rawstatinfo):
+    def refresh_by(self, rawstateinfo):
         assert(isinstance(rawstateinfo, _dmrg.RawStateInfo))
         self._raw = rawstateinfo
         self._sync_raw2self()
@@ -23,7 +23,7 @@ class StateInfo(object):
     def _sync_raw2self(self):
         self.totalStates = self._raw.totalStates
         self.quantaStates = self._raw.quantaStates
-        self.allowedQuanta = self._raw.get_whole_allowedQuanta
+        self.allowedQuanta = self._raw.get_whole_allowedQuanta()
         self.leftUnMapQuanta = self._raw.leftUnMapQuanta
         self.rightUnMapQuanta = self._raw.leftUnMapQuanta
 
@@ -42,8 +42,3 @@ class StateInfo(object):
     def get_allowedQuanta(self, lquanta_id, rquanta_id):
         '''return True/False'''
         return self._raw.get_allowedQuanta(lquanta_id, rquanta_id)
-
-
-#if __name__ == '__main__':
-#    import doctest
-#    doctest.testmod()

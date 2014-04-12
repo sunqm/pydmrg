@@ -136,7 +136,7 @@ cdef class RawStateInfo:
     def get_whole_allowedQuanta(self):
         nrow = self._this.leftStateInfo.quanta.size()
         ncol = self._this.leftStateInfo.quanta.size()
-        cdef numpy.ndarray tftab = numpy.zeros((nrow,ncol), type=numpy.bool8)
+        cdef numpy.ndarray tftab = numpy.zeros((nrow,ncol),dtype=numpy.bool8)
         get_whole_StateInfo_allowedQuanta(self._this, <char *>tftab.data)
         return tftab
     property leftUnMapQuanta:
@@ -213,7 +213,6 @@ cdef class NewRawRotationMatrix:
         del self._this
 
     def __init__(self, filerotmat, nquanta):
-        self.size = nquanta
         self._this.resize(nquanta)
         load_rotmat(filerotmat, self._this)
 
@@ -221,10 +220,11 @@ cdef class NewRawRotationMatrix:
         #mat = RawMatrix()
         #mat._this = &self._this.at(qid) # bug: vague return type?
         #mat.update_allprop()
-        mati = self._this.at(quanta_id)
+        cdef Matrix *mati = &(self._this.at(quanta_id))
         cdef int nrow = mati.Nrows()
         cdef int ncol = mati.Ncols()
         cdef numpy.ndarray mat = numpy.empty((nrow,ncol))
-        memcpy(<double *>mat.data, &mati.element(0,0), nrow*ncol*sizeof(int))
+        if nrow*ncol > 0:
+            memcpy(<double *>mat.data, &mati.element(0,0), nrow*ncol*sizeof(int))
         return mat
 

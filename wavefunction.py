@@ -60,20 +60,23 @@ class Wavefunction(object):
 
 
 if __name__ == '__main__':
-    wfnfiles = ['wave-0-1.0.0.tmp', 'wave-0-1.0.1.tmp', 'wave-0-2.0.0.tmp',
-                'wave-0-2.0.1.tmp', 'wave-0-3.0.0.tmp', 'wave-0-3.0.1.tmp',
-                'wave-0-4.0.0.tmp', 'wave-0-4.0.1.tmp', 'wave-0-5.0.0.tmp',
-                'wave-0-6.0.0.tmp', 'wave-1-3.0.0.tmp', 'wave-1-3.0.1.tmp',
-                'wave-1-5.0.0.tmp', 'wave-1-5.0.1.tmp', 'wave-1-7.0.0.tmp',
-                'wave-2-3.0.0.tmp', 'wave-2-3.0.1.tmp', 'wave-2-5.0.0.tmp',
-                'wave-2-5.0.1.tmp', 'wave-2-7.0.0.tmp', 'wave-3-5.0.0.tmp',
-                'wave-3-5.0.1.tmp', 'wave-3-7.0.0.tmp', 'wave-4-5.0.0.tmp',
-                'wave-4-5.0.1.tmp', 'wave-4-7.0.0.tmp', 'wave-5-7.0.0.tmp',
-                'wave-6-7.0.0.tmp',]
-    wfnfiles = ['/dev/shm/'+i for i in wfnfiles]
-    wfn = Wavefunction(wfnfiles)
+    files = ['0-1.0.0', '0-1.0.1', '0-2.0.0', '0-2.0.1', '0-3.0.0', '0-3.0.1',
+             '0-4.0.0', '0-4.0.1', '0-5.0.0', '0-6.0.0', '1-3.0.0', '1-3.0.1',
+             '1-5.0.0', '1-5.0.1', '1-7.0.0', '2-3.0.0', '2-3.0.1', '2-5.0.0',
+             '2-5.0.1', '2-7.0.0', '3-5.0.0', '3-5.0.1', '3-7.0.0', '4-5.0.0',
+             '4-5.0.1', '4-7.0.0', '5-7.0.0', '6-7.0.0',]
+    files = ['/dev/shm/wave-%s.tmp'%i for i in files]
+    wfn = Wavefunction(files)
     wfn.load(5)
     print wfn
     print wfn.deltaQuantum.particleNumber, wfn.deltaQuantum.totalSpin
-    si = wfn.stateInfo
-    print si.totalStates
+    print wfn.stateInfo.totalStates
+    print wfn.stateInfo.quantaStates
+    print wfn.stateInfo.allowedQuanta
+    print wfn.stateInfo.leftUnMapQuanta
+    print wfn.stateInfo.rightUnMapQuanta
+    spinquanta = wfn.stateInfo.get_quanta(0)
+    print spinquanta.particleNumber
+    print spinquanta.totalSpin
+    print spinquanta.irrep
+    print wfn.stateInfo.get_quantaMap(0, 1)

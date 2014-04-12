@@ -11,7 +11,7 @@ class SpinQuantum(object):
         pass
 
     def refresh_by(self, rawquanta):
-        assert(isinstance(rawstateinfo, _dmrg.RawSpinQuantum))
+        assert(isinstance(rawquanta, _dmrg.RawSpinQuantum))
         self._raw = rawquanta
         self._sync_raw2self()
 
@@ -22,9 +22,4 @@ class SpinQuantum(object):
 
     def _sync_self2raw(self):
         pass
-
-
-#if __name__ == '__main__':
-#    import doctest
-#    doctest.testmod()
 
