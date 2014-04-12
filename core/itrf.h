@@ -5,14 +5,14 @@
 #include "MatrixBLAS.h"
 #include <boost/serialization/vector.hpp>
 
+#include "rotmat.h"
+
 using namespace SpinAdapted;
 
 int load_wavefunction(char *filewave, Wavefunction *oldWave,
                       StateInfo *waveInfo);
 
 int x_SpinQuantum_irrep(SpinQuantum *sq);
-
-int load_rotmat(char *filerotmat, std::vector<Matrix> *mat);
 
 int load_spinblock(char *filespinblock, SpinBlock *b);
 StateInfo *x_SpinBlock_stateInfo(SpinBlock *b);

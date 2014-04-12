@@ -18,7 +18,8 @@ class RotationMatrix(object):
             matfile = self._matfiles[mat_id]
         if not os.path.isfile(matfile):
             raise OSError('file %s does not exist' % matfile)
-        self._raw = _dmrg.NewRawRotationMatrix(matfile, self.size)
+        self._raw = _dmrg.NewRawRotationMatrix()
+        self._raw.load(matfile, self.size)
         self._sync_raw2self()
 
     def _sync_raw2self(self):

@@ -52,11 +52,16 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
     # name??
     # *leftBlock *rightBlock
     cdef cppclass SpinBlock:
-        #StateInfo& get_stateInfo() # use get_spinblock_stateinfo
+        SpinBlock()
+        SpinBlock(int start, int finish, bool is_complement=0)
         vector[int]& get_sites()
         # complementary_sites = [all i not in sites]
         void printOperatorSummary()
-        #TODO BaseOperator or SparseMatrix get_op_array()
+        #TODO BaseOperator or SparseMatrix get_op_array() for ops
+        void default_op_components(bool direct, SpinBlock& lBlock,
+                                   SpinBlock& rBlock, bool haveNormops,
+                                   bool haveCompops)
+
 
 cdef extern from 'SpinQuantum.h' namespace 'SpinAdapted':
     cdef cppclass SpinQuantum:
@@ -81,14 +86,20 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
         # quantaMap => get_StateInfo_quantaMap
         vector[int] leftUnMapQuanta
         vector[int] rightUnMapQuanta
+    #void TensorProduct (StateInfo& a, StateInfo& b, StateInfo& c,
+    #                    int constraint, StateInfo* compState)
 
 
 
 cdef extern from 'itrf.h':
+    int load_rotmat(char *filerotmat, vector[Matrix] *mat)
+    int update_rotmat(vector[Matrix] *rotateMatrix,
+                      Wavefunction *wfn, SpinBlock *sys, SpinBlock *big,
+                      int keptstates, int keptqstates, double noise)
+
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
                           StateInfo *waveInfo)
     int x_SpinQuantum_irrep(SpinQuantum *sq)
-    int load_rotmat(char *filerotmat, vector[Matrix] *mat)
     int load_spinblock(char *filespinblock, SpinBlock *b)
     StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
     vector[int]& x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
@@ -98,8 +109,9 @@ cdef extern from 'itrf.h':
     int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab)
 
 
-# RawAclass does not allocate memory for Aclass._this, it points to an
-# allocated object
+# RawAclass does not allocate memory for Aclass._this.  Its pointer _this only
+# refer to other objects.  It does not deallocate Aclass._this when the object
+# is destroyed by python.
 cdef class RawSpinQuantum:
     cdef SpinQuantum *_this
     property particleNumber:
@@ -159,13 +171,24 @@ cdef class RawSpinBlock:
     def get_sites(self): return self._this.get_sites()
     def printOperatorSummary(self):
         self._this.printOperatorSummary()
+    def default_op_components(self, direct,
+                              RawSpinBlock lBlock, RawSpinBlock rBlock,
+                              haveNormops, haveCompops):
+        self._this.default_op_components(direct,
+                                         lBlock._this[0], rBlock._this[0],
+                                         haveNormops, haveCompops)
+    def set_twoInt(self):
+        pass
 cdef class NewRawSpinBlock(RawSpinBlock):
-    def __cinit__(self):
-        self._this = new SpinBlock()
+    #def __cinit__(self):
+    #    self._this = new SpinBlock()
     def __dealloc__(self):
         del self._this
-    def __init__(self, filespinblock):
+    def load(self, filespinblock):
+        self._this = new SpinBlock()
         load_spinblock(filespinblock, self._this)
+    def init_by_dot_id(self, start, finish, is_complement):
+        self._this = new SpinBlock(start, finish, is_complement)
 
 
 cdef class RawSparseMatrix:
@@ -176,28 +199,30 @@ cdef class RawSparseMatrix:
     def allowed(self, i, j): return <bint>self._this.allowed(i,j)
     def get_shape(self): return self._this.nrows(), self._this.ncols()
 
-cdef class NewRawWavefunction:
+cdef class RawWavefunction:
     cdef Wavefunction *_this
     #cdef readonly NewRawStateInfo stateInfo
     cdef public NewRawStateInfo stateInfo
-    cdef public RawSpinQuantum deltaQuantum
-    def __cinit__(self):
-        self._this = new Wavefunction()
-    def __dealloc__(self):
-        del self._this
-
-    def __init__(self, wfnfile):
-        self.stateInfo = NewRawStateInfo()
-        load_wavefunction(wfnfile, self._this, self.stateInfo._this)
+    def get_deltaQuantum(self):
         cdef SpinQuantum *p = &(self._this.set_deltaQuantum())
-        self.deltaQuantum = RawSpinQuantum()
-        self.deltaQuantum._this = p
+        deltaQuantum = RawSpinQuantum()
+        deltaQuantum._this = p
+        return deltaQuantum
     def get_onedot(self): return self._this.get_onedot()
     def get_orbs(self): return self._this.get_orbs()
     def get_sign(self): return self._this.get_sign()
     def get_fermion(self): return self._this.get_fermion()
     def allowed(self, i, j): return <bint>self._this.allowed(i,j)
     def get_shape(self): return self._this.nrows(), self._this.ncols()
+cdef class NewRawWavefunction(RawWavefunction):
+    def __cinit__(self):
+        self._this = new Wavefunction()
+    def __dealloc__(self):
+        del self._this
+
+    def load(self, wfnfile):
+        self.stateInfo = NewRawStateInfo()
+        load_wavefunction(wfnfile, self._this, self.stateInfo._this)
 
 
 cdef class RawMatrix:
@@ -212,10 +237,9 @@ cdef class NewRawRotationMatrix:
     def __dealloc__(self):
         del self._this
 
-    def __init__(self, filerotmat, nquanta):
+    def load(self, filerotmat, nquanta):
         self._this.resize(nquanta)
         load_rotmat(filerotmat, self._this)
-
     def get_matrix_by_quanta_id(self, quanta_id):
         #mat = RawMatrix()
         #mat._this = &self._this.at(qid) # bug: vague return type?
@@ -228,3 +252,19 @@ cdef class NewRawRotationMatrix:
             memcpy(<double *>mat.data, &mati.element(0,0), nrow*ncol*sizeof(int))
         return mat
 
+
+
+def tensor_product(RawStateInfo a, RawStateInfo b, RawStateInfo c,
+                   constraint, RawStateInfo compState):
+    pass
+     #void TensorProduct (StateInfo& a, StateInfo& b, StateInfo& c, const int
+     #                    constraint, StateInfo* compState)
+
+
+def make_rotmat(RawWavefunction wfn, RawSpinBlock sys, RawSpinBlock big):
+    # rmat is resized in update_rotmat => makeRotateMatrix => assign_matrix_by_dm
+    rmat = NewRawRotationMatrix()
+
+    # TODO: add noise
+    update_rotmat(rmat._this, wfn._this, sys._this, big._this, 0, 0, 0)
+    return rmat

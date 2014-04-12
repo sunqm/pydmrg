@@ -5,6 +5,7 @@
 
 import os, sys
 import _dmrg
+import stateinfo
 
 class SpinBlock(object):
     def __init__(self, blockfiles):
@@ -18,8 +19,14 @@ class SpinBlock(object):
             blockfile = self._blockfiles[block_id]
         if not os.path.isfile(blockfile):
             raise OSError('file %s does not exist' % blockfile)
-        self._raw = _dmrg.NewRawSpinBlock(blockfile)
+        self._raw = _dmrg.NewRawSpinBlock()
+        self._raw.load(blockfile)
+        self.stateInfo = stateinfo.StateInfo()
+        self.stateInfo.refresh_by(self._raw.get_stateInfo())
         self._sync_raw2self()
+
+    def init_by_dot_id(dot_start, dot_end, is_complement=0):
+        self._raw.init_by_dot_id(dot_start, dot_end, is_complement)
 
     def _sync_raw2self(self):
         self.sites = self._raw.get_sites()

@@ -39,11 +39,12 @@ class Wavefunction(object):
             wfnfile = self._wfnfiles[wfn_id]
         if not os.path.isfile(wfnfile):
             raise OSError('file %s does not exist' % wfnfile)
-        self._raw = _dmrg.NewRawWavefunction(wfnfile)
+        self._raw = _dmrg.NewRawWavefunction()
+        self._raw.load(wfnfile)
         self.stateInfo = stateinfo.StateInfo()
         self.stateInfo.refresh_by(self._raw.stateInfo)
         self.deltaQuantum = quanta.SpinQuantum()
-        self.deltaQuantum.refresh_by(self._raw.deltaQuantum)
+        self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
         self._sync_raw2self()
 
     def _sync_raw2self(self):
