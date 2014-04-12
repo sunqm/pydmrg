@@ -5,11 +5,13 @@
 
 import os
 import _dmrg
+import stateinfo
+import quanta
 
 class Wavefunction(object):
     def __init__(self, wfnfiles):
         self._wfnfiles = wfnfiles
-        self.orbs = None
+        self.orbs = []
         self.sign = 0
         self.fermion = True
         self.left_nquanta = 0
@@ -37,40 +39,44 @@ class Wavefunction(object):
             wfnfile = self._wfnfiles[wfn_id]
         if not os.path.isfile(wfnfile):
             raise OSError('file %s does not exist' % wfnfile)
-        self.wfn = _dmrg.NewWavefunction(wfnfile)
-        self.stateInfo = self.wfn.stateInfo
-        self.deltaQuantum = self.wfn.deltaQuantum
-        self._sync_wfn2self()
+        self._raw = _dmrg.NewRawWavefunction(wfnfile)
+        self.stateInfo = stateinfo.StateInfo()
+        self.stateInfo.refresh_by(self._raw.stateInfo)
+        self.deltaQuantum = quanta.SpinQuantum()
+        self.deltaQuantum.refresh_by(self._raw.deltaQuantum)
+        self._sync_raw2self()
 
-    def _sync_wfn2self(self):
-        self.orbs = self.wfn.get_orbs()
-        self.sign = self.wfn.get_sign()
-        self.fermion = self.wfn.get_fermion()
-        self.left_nquanta = self.wfn.nrows()
-        self.right_nquanta = self.wfn.ncols()
+    def _sync_raw2self(self):
+        self.orbs = self._raw.get_orbs()
+        self.sign = self._raw.get_sign()
+        self.fermion = self._raw.get_fermion()
+        self.left_nquanta, self.right_nquanta = self._raw.get_shape()
+
+    def _sync_self2raw(self):
+        pass
 
     def allowed(self, i, j):
-        return self.wfn.allowed(i,j)
-
-    def _sync_self2wfn(self):
-        pass
+        return self._raw.allowed(i,j)
 
 
 if __name__ == '__main__':
-    wfnfiles = ['wave-0-1.0.0.tmp', 'wave-0-1.0.1.tmp', 'wave-0-2.0.0.tmp',
-                'wave-0-2.0.1.tmp', 'wave-0-3.0.0.tmp', 'wave-0-3.0.1.tmp',
-                'wave-0-4.0.0.tmp', 'wave-0-4.0.1.tmp', 'wave-0-5.0.0.tmp',
-                'wave-0-6.0.0.tmp', 'wave-1-3.0.0.tmp', 'wave-1-3.0.1.tmp',
-                'wave-1-5.0.0.tmp', 'wave-1-5.0.1.tmp', 'wave-1-7.0.0.tmp',
-                'wave-2-3.0.0.tmp', 'wave-2-3.0.1.tmp', 'wave-2-5.0.0.tmp',
-                'wave-2-5.0.1.tmp', 'wave-2-7.0.0.tmp', 'wave-3-5.0.0.tmp',
-                'wave-3-5.0.1.tmp', 'wave-3-7.0.0.tmp', 'wave-4-5.0.0.tmp',
-                'wave-4-5.0.1.tmp', 'wave-4-7.0.0.tmp', 'wave-5-7.0.0.tmp',
-                'wave-6-7.0.0.tmp',]
-    wfnfiles = ['/dev/shm/'+i for i in wfnfiles]
-    wfn = Wavefunction(wfnfiles)
+    files = ['0-1.0.0', '0-1.0.1', '0-2.0.0', '0-2.0.1', '0-3.0.0', '0-3.0.1',
+             '0-4.0.0', '0-4.0.1', '0-5.0.0', '0-6.0.0', '1-3.0.0', '1-3.0.1',
+             '1-5.0.0', '1-5.0.1', '1-7.0.0', '2-3.0.0', '2-3.0.1', '2-5.0.0',
+             '2-5.0.1', '2-7.0.0', '3-5.0.0', '3-5.0.1', '3-7.0.0', '4-5.0.0',
+             '4-5.0.1', '4-7.0.0', '5-7.0.0', '6-7.0.0',]
+    files = ['/dev/shm/wave-%s.tmp'%i for i in files]
+    wfn = Wavefunction(files)
     wfn.load(5)
     print wfn
     print wfn.deltaQuantum.particleNumber, wfn.deltaQuantum.totalSpin
-    si = wfn.stateInfo
-    print si.totalStates
+    print wfn.stateInfo.totalStates
+    print wfn.stateInfo.quantaStates
+    print 'allowedQuanta', wfn.stateInfo.allowedQuanta
+    print wfn.stateInfo.leftUnMapQuanta
+    print wfn.stateInfo.rightUnMapQuanta
+    spinquanta = wfn.stateInfo.get_quanta(0)
+    print spinquanta.particleNumber
+    print spinquanta.totalSpin
+    print spinquanta.irrep
+    print wfn.stateInfo.get_quantaMap(0, 1)
