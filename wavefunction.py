@@ -72,7 +72,7 @@ if __name__ == '__main__':
     print wfn.deltaQuantum.particleNumber, wfn.deltaQuantum.totalSpin
     print wfn.stateInfo.totalStates
     print wfn.stateInfo.quantaStates
-    print wfn.stateInfo.allowedQuanta
+    print 'allowedQuanta', wfn.stateInfo.allowedQuanta
     print wfn.stateInfo.leftUnMapQuanta
     print wfn.stateInfo.rightUnMapQuanta
     spinquanta = wfn.stateInfo.get_quanta(0)
