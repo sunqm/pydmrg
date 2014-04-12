@@ -4,17 +4,34 @@
 #
 
 import os, sys
+import _dmrg
 
 class SpinBlock(object):
-    def __init__(self, params=None, inplace=False):
-        self._inplace = inplace
+    def __init__(self, blockfiles):
+        self._blockfiles = blockfiles
+        self.sites = []
+
+    def load(self, block_id):
+        if isinstance(block_id, str):
+            blockfile = block_id
+        else:
+            blockfile = self._blockfiles[block_id]
+        if not os.path.isfile(blockfile):
+            raise OSError('file %s does not exist' % blockfile)
+        self._raw = _dmrg.NewSpinBlock(blockfile)
+        self._sync_raw2self()
+
+    def _sync_raw2self(self):
+        self.sites = self._raw.get_sites()
+
+    def _sync_self2raw(self):
         pass
 
-    def get_complementry_sites(self):
-        pass
+    def printOperatorSummary(self):
+        self._raw.printOperatorSummary()
 
-    def get_sites(self):
-        pass
+    def get_complementry_sites(self, last_site_id):
+        return [i for i in range(last_site_id) if i not in self.sites]
 
 #if __name__ == '__main__':
 #    import doctest

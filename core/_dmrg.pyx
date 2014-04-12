@@ -1,15 +1,16 @@
-# distutils: language = c++
+#cython: boundscheck=False
+#cython: wraparound=False
+#distutils: language = c++
 
 import os
 #from libc.stdlib cimport malloc, free
 from libcpp.vector cimport vector
-#from libcpp cimport bool
+from libcpp cimport bool
 #from cpython cimport bool
+from libc.string cimport memcpy
 import numpy
 cimport numpy
 cimport cython
-#cython: boundscheck=False
-#cython: wraparound=False
 
 
 #cdef extern from 'Python.h':
@@ -24,6 +25,24 @@ cdef extern from 'newmat.h':
     cdef cppclass Matrix:
         int Nrows()
         int Ncols()
+        double& element(int, int)
+
+cdef extern from "BaseOperator.h" namespace 'SpinAdapted':
+    cdef cppclass SparseMatrix:
+        vector[int]& get_orbs()
+        char& allowed(int i, int j)
+        int nrows()
+        int ncols()
+        int get_sign()
+        bint get_fermion()
+        SpinQuantum& set_deltaQuantum()
+
+cdef extern from 'wavefunction.h' namespace 'SpinAdapted':
+    # Wavefunction class belongs to SparseMatrix, so the member vars of
+    # SparseMatrix need to be tracked
+    #   ObjectMatrix<Matrix> operatorMatrix;
+    cdef cppclass Wavefunction(SparseMatrix):
+        bool& get_onedot()
 
 cdef extern from 'spinblock.h' namespace 'SpinAdapted':
     # SpinBlock class holds
@@ -37,6 +56,7 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
         vector[int]& get_sites()
         # complementary_sites = [all i not in sites]
         void printOperatorSummary()
+        #TODO BaseOperator or SparseMatrix get_op_array()
 
 cdef extern from 'SpinQuantum.h' namespace 'SpinAdapted':
     cdef cppclass SpinQuantum:
@@ -62,20 +82,8 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
         vector[int] leftUnMapQuanta
         vector[int] rightUnMapQuanta
 
-cdef extern from 'wavefunction.h' namespace 'SpinAdapted':
-    # Wavefunction class belongs to SparseMatrix, so the member vars of
-    # SparseMatrix need to be tracked
-    #   ObjectMatrix<Matrix> operatorMatrix;
-    cdef cppclass Wavefunction:
-        vector[int]& get_orbs()
-        char& allowed(int i, int j)
-        int nrows()
-        int ncols()
-        int get_sign()
-        bint get_fermion()
-        SpinQuantum& set_deltaQuantum()
 
-  
+
 cdef extern from 'itrf.h':
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
                           StateInfo *waveInfo)
@@ -90,9 +98,9 @@ cdef extern from 'itrf.h':
     int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab)
 
 
-# PyAclass does not allocate memory for Aclass._this, it points to an
+# RawAclass does not allocate memory for Aclass._this, it points to an
 # allocated object
-cdef class PySpinQuantum:
+cdef class RawSpinQuantum:
     cdef SpinQuantum *_this
     property particleNumber:
         def __get__(self): return self._this.particleNumber
@@ -100,16 +108,15 @@ cdef class PySpinQuantum:
     property totalSpin:
         def __get__(self): return self._this.totalSpin
         #def __set__(self, x): self._this.totalSpin = x
-    def irrep(self):
-        return x_SpinQuantum_irrep(self._this)
-cdef class NewSpinQuantum(PySpinQuantum):
+    def irrep(self): return x_SpinQuantum_irrep(self._this)
+cdef class NewRawSpinQuantum(RawSpinQuantum):
     def __cinit__(self):
         self._this = new SpinQuantum()
     def __dealloc__(self):
         del self._this
 
 
-cdef class PyStateInfo:
+cdef class RawStateInfo:
     cdef StateInfo *_this
     property totalStates:
         def __get__(self): return self._this.totalStates
@@ -119,9 +126,9 @@ cdef class PyStateInfo:
         #def __set__(self, x): self._this.quantaStates = x
     def get_quanta(self, i):
         cdef SpinQuantum *p = &self._this.quanta[i]
-        sq = PySpinQuantum()
-        sq._this = p
-        return sq
+        rawq = RawSpinQuantum()
+        rawq._this = p
+        return rawq
     def get_quantaMap(self, lquanta_id, rquanta_id):
         return x_StateInfo_quantaMap(self._this, lquanta_id, rquanta_id)
     def get_allowedQuanta(self, lquanta_id, rquanta_id):
@@ -136,87 +143,88 @@ cdef class PyStateInfo:
         def __get__(self): return self._this.leftUnMapQuanta
     property rightUnMapQuanta:
         def __get__(self): return self._this.rightUnMapQuanta
-cdef class NewStateInfo(PyStateInfo):
+cdef class NewRawStateInfo(RawStateInfo):
     def __cinit__(self):
         self._this = new StateInfo()
     def __dealloc__(self):
         del self._this
 
 
-cdef class PySpinBlock:
+cdef class RawSpinBlock:
     cdef SpinBlock *_this
     def get_stateInfo(self):
-        si = PyStateInfo()
+        si = RawStateInfo()
         si._this = x_SpinBlock_stateInfo(self._this)
         return si
-    def get_sites(self):
-        return self._this.get_sites()
+    def get_sites(self): return self._this.get_sites()
     def printOperatorSummary(self):
         self._this.printOperatorSummary()
-cdef class NewSpinBlock(PySpinBlock):
+cdef class NewRawSpinBlock(RawSpinBlock):
     def __cinit__(self):
         self._this = new SpinBlock()
     def __dealloc__(self):
         del self._this
-    def load(self, filespinblock):
+    def __init__(self, filespinblock):
         load_spinblock(filespinblock, self._this)
 
 
-cdef class NewWavefunction:
+cdef class RawSparseMatrix:
+    cdef SparseMatrix *_this
+    def get_orbs(self): return self._this.get_orbs()
+    def get_sign(self): return self._this.get_sign()
+    def get_fermion(self): return self._this.get_fermion()
+    def allowed(self, i, j): return <bint>self._this.allowed(i,j)
+    def get_shape(self): return self._this.nrows(), self._this.ncols()
+
+cdef class NewRawWavefunction:
     cdef Wavefunction *_this
-    #cdef readonly NewStateInfo stateInfo
-    cdef public NewStateInfo stateInfo
-    cdef public PySpinQuantum deltaQuantum
+    #cdef readonly NewRawStateInfo stateInfo
+    cdef public NewRawStateInfo stateInfo
+    cdef public RawSpinQuantum deltaQuantum
     def __cinit__(self):
         self._this = new Wavefunction()
     def __dealloc__(self):
         del self._this
 
     def __init__(self, wfnfile):
-        self.stateInfo = NewStateInfo()
+        self.stateInfo = NewRawStateInfo()
         load_wavefunction(wfnfile, self._this, self.stateInfo._this)
-        #fixme when read wavefunction from wfnfile, deltaQuantum is probably
-        #not initialized
         cdef SpinQuantum *p = &(self._this.set_deltaQuantum())
-        self.deltaQuantum = PySpinQuantum()
+        self.deltaQuantum = RawSpinQuantum()
         self.deltaQuantum._this = p
-    def get_orbs(self):
-        return self._this.get_orbs()
-    def get_sign(self):
-        return self._this.get_sign()
-    def get_fermion(self):
-        return self._this.get_fermion()
-    def allowed(self, i, j):
-        return <bint>self._this.allowed(i,j)
-    def nrows(self):
-        return self._this.nrows()
-    def ncols(self):
-        return self._this.ncols()
+    def get_onedot(self): return self._this.get_onedot()
+    def get_orbs(self): return self._this.get_orbs()
+    def get_sign(self): return self._this.get_sign()
+    def get_fermion(self): return self._this.get_fermion()
+    def allowed(self, i, j): return <bint>self._this.allowed(i,j)
+    def get_shape(self): return self._this.nrows(), self._this.ncols()
 
 
-cdef class PyMatrix:
+cdef class RawMatrix:
     cdef Matrix *_this
-    def __init__(self):
-        self.shape = (0,0)
     def get_shape(self):
         return self._this.Nrows(), self._this.Ncols()
-    def update_allprop(self):
-        self.shape = self.get_shape()
-cdef class NewRotationMatrix:
+
+cdef class NewRawRotationMatrix:
     cdef vector[Matrix] *_this
     def __cinit__(self):
         self._this = new vector[Matrix]()
     def __dealloc__(self):
         del self._this
-    def __init__(self):
-        pass
-    def load(self, filerotmat, nquanta):
+
+    def __init__(self, filerotmat, nquanta):
         self.size = nquanta
         self._this.resize(nquanta)
         load_rotmat(filerotmat, self._this)
+
     def get_matrix_by_quanta_id(self, quanta_id):
-        cdef int qid = quanta_id
-        mat = PyMatrix()
-        mat._this = &self._this.at(qid)
-        mat.update_allprop()
+        #mat = RawMatrix()
+        #mat._this = &self._this.at(qid) # bug: vague return type?
+        #mat.update_allprop()
+        mati = self._this.at(quanta_id)
+        cdef int nrow = mati.Nrows()
+        cdef int ncol = mati.Ncols()
+        cdef numpy.ndarray mat = numpy.empty((nrow,ncol))
+        memcpy(<double *>mat.data, &mati.element(0,0), nrow*ncol*sizeof(int))
+        return mat
 

@@ -19,6 +19,7 @@ char& x_StateInfo_allowedQuanta(StateInfo *s, int lquanta_id,
     return s->allowedQuanta(lquanta_id, rquanta_id);
 }
 
+// memcpy here since we don't expose the ObjectMatrix class
 int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab)
 {
     std::vector<char>& rep = s->allowedQuanta.rep;

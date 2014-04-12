@@ -5,11 +5,13 @@
 
 import os
 import _dmrg
+import stateinfo
+import quanta
 
 class Wavefunction(object):
     def __init__(self, wfnfiles):
         self._wfnfiles = wfnfiles
-        self.orbs = None
+        self.orbs = []
         self.sign = 0
         self.fermion = True
         self.left_nquanta = 0
@@ -37,23 +39,24 @@ class Wavefunction(object):
             wfnfile = self._wfnfiles[wfn_id]
         if not os.path.isfile(wfnfile):
             raise OSError('file %s does not exist' % wfnfile)
-        self.wfn = _dmrg.NewWavefunction(wfnfile)
-        self.stateInfo = self.wfn.stateInfo
-        self.deltaQuantum = self.wfn.deltaQuantum
-        self._sync_wfn2self()
+        self._raw = _dmrg.NewRawWavefunction(wfnfile)
+        self.stateInfo = stateinfo.StateInfo()
+        self.stateInfo.refresh_by(self._raw.stateInfo)
+        self.deltaQuantum = quanta.SpinQuantum()
+        self.deltaQuantum.refresh_by(self._raw.deltaQuantum)
+        self._sync_raw2self()
 
-    def _sync_wfn2self(self):
-        self.orbs = self.wfn.get_orbs()
-        self.sign = self.wfn.get_sign()
-        self.fermion = self.wfn.get_fermion()
-        self.left_nquanta = self.wfn.nrows()
-        self.right_nquanta = self.wfn.ncols()
+    def _sync_raw2self(self):
+        self.orbs = self._raw.get_orbs()
+        self.sign = self._raw.get_sign()
+        self.fermion = self._raw.get_fermion()
+        self.left_nquanta, self.right_nquanta = self._raw.get_shape()
+
+    def _sync_self2raw(self):
+        pass
 
     def allowed(self, i, j):
-        return self.wfn.allowed(i,j)
-
-    def _sync_self2wfn(self):
-        pass
+        return self._raw.allowed(i,j)
 
 
 if __name__ == '__main__':
