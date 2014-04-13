@@ -53,7 +53,7 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
     # *leftBlock *rightBlock
     cdef cppclass SpinBlock:
         SpinBlock()
-        SpinBlock(int start, int finish, bool is_complement=0)
+        SpinBlock(int start, int finish, bool is_complement)
         vector[int]& get_sites()
         # complementary_sites = [all i not in sites]
         void printOperatorSummary()
@@ -86,8 +86,13 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
         # quantaMap => get_StateInfo_quantaMap
         vector[int] leftUnMapQuanta
         vector[int] rightUnMapQuanta
-    #void TensorProduct (StateInfo& a, StateInfo& b, StateInfo& c,
-    #                    int constraint, StateInfo* compState)
+
+cdef extern from *:
+    # although TensorProduct is defined in namespace SpinAdapted, it can only
+    # be correctly found by gcc in the global namespace
+    # test on clang is needed
+    void TensorProduct(StateInfo& a, StateInfo& b, StateInfo& c,
+                       int constraint, StateInfo* compState)
 
 
 
@@ -187,7 +192,7 @@ cdef class NewRawSpinBlock(RawSpinBlock):
     def load(self, filespinblock):
         self._this = new SpinBlock()
         load_spinblock(filespinblock, self._this)
-    def init_by_dot_id(self, start, finish, is_complement):
+    def init_by_dot_id(self, int start, int finish, is_complement=0):
         self._this = new SpinBlock(start, finish, is_complement)
 
 
@@ -253,13 +258,17 @@ cdef class NewRawRotationMatrix:
         return mat
 
 
+#################################################
+#
+#################################################
 
-def tensor_product(RawStateInfo a, RawStateInfo b, RawStateInfo c,
-                   constraint, RawStateInfo compState):
-    pass
-     #void TensorProduct (StateInfo& a, StateInfo& b, StateInfo& c, const int
-     #                    constraint, StateInfo* compState)
-
+def PyTensorProduct(RawStateInfo a, RawStateInfo b, int constraint):
+    c = NewRawStateInfo()
+    # constraint = 0 for NO_PARTICLE_SPIN_NUMBER_CONSTRAINT
+    # constraint = 1 for PARTICLE_SPIN_NUMBER_CONSTRAINT
+    # I didn't find any call with compState other than NULL in Block
+    TensorProduct(a._this[0], b._this[0], c._this[0], constraint, NULL)
+    return c
 
 def make_rotmat(RawWavefunction wfn, RawSpinBlock sys, RawSpinBlock big):
     # rmat is resized in update_rotmat => makeRotateMatrix => assign_matrix_by_dm

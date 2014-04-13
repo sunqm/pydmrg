@@ -2,6 +2,7 @@
 #include "wavefunction.h"
 #include "spinblock.h"
 #include "SpinQuantum.h"
+#include "StateInfo.h"
 #include "MatrixBLAS.h"
 #include <boost/serialization/vector.hpp>
 
@@ -21,3 +22,4 @@ std::vector<int>& x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
 char& x_StateInfo_allowedQuanta(StateInfo *s, int lquanta_id,
                                 int rquanta_id);
 int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab);
+
