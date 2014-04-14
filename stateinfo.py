@@ -10,19 +10,29 @@ import quanta
 class StateInfo(object):
     def __init__(self):
         self.totalStates = 0
-        self.quantaStates = 0
+        self.quantaStates = []
         self.allowedQuanta = numpy.ones((0,0),dtype=bool)
+        self.unBlockedIndex = []
         self.leftUnMapQuanta = []
         self.rightUnMapQuanta = []
+
+        # point to another StateInfo, (not RawStateInfo)
+        self.leftStateInfo = None
+        self.rightStateInfo = None
+        self.unCollectedStateInfo = None
 
     def refresh_by(self, rawstateinfo):
         assert(isinstance(rawstateinfo, _dmrg.RawStateInfo))
         self._raw = rawstateinfo
         self._sync_raw2self()
+        #how to initialize:
+        # self.unCollectedStateInfo self.leftStateInfo self.rightStateInfo
 
     def _sync_raw2self(self):
-        self.totalStates = self._raw.totalStates
+        self.totalStates = sum(self._raw.quantaStates)
         self.quantaStates = self._raw.quantaStates
+        self.unBlockedIndex = [sum(self.quantaStates[:i]) \
+                               for i,_ in enumerate(self.quantaStates)]
         self.allowedQuanta = self._raw.get_whole_allowedQuanta()
         self.leftUnMapQuanta = self._raw.leftUnMapQuanta
         self.rightUnMapQuanta = self._raw.leftUnMapQuanta
@@ -42,3 +52,30 @@ class StateInfo(object):
     def get_allowedQuanta(self, lquanta_id, rquanta_id):
         '''return True/False'''
         return self._raw.get_allowedQuanta(lquanta_id, rquanta_id)
+
+    def CollectQuanta(self):
+        # make self as an unCollectedStateInfo for a new StateInfo
+        newsi = StateInfo()
+        newsi._raw = _dmrg.NewRawStateInfo()
+        _dmrg.Pyunion_StateInfo_quanta(newsi._raw, self._raw)
+        newsi.unCollectedStateInfo = self
+        newsi.set_unCollectedStateInfo(self._raw)
+        newsi._sync_raw2self()
+
+        newsi.leftStateInfo = self.leftStateInfo
+        newsi.rightStateInfo = self.rightStateInfo
+        # NOTE avoid the following two being overwritten by _sync_raw2self
+        newsi.leftUnMapQuanta = self.leftUnMapQuanta;
+        newsi.rightUnMapQuanta = self.rightUnMapQuanta;
+        return newsi
+
+
+def TensorProduct(a, b, constraint=0):
+    '''return StateInfo c, c = (StateInfo a) * (StateInfo b)
+
+    constraint = 0 for NO_PARTICLE_SPIN_NUMBER_CONSTRAINT
+    constraint = 1 for PARTICLE_SPIN_NUMBER_CONSTRAINT
+    '''
+    c = StateInfo()
+    c.refresh_by(_dmrg.PyTensorProduct(a._raw, b._raw, constraint))
+    return c

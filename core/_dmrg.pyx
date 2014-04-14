@@ -55,7 +55,8 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
         SpinBlock()
         SpinBlock(int start, int finish, bool is_complement)
         vector[int]& get_sites()
-        # complementary_sites = [all i not in sites]
+        # complementary_sites = [all i not in sites], only op_component.C uses
+        # it to search the sites which are connected to complementary by ops
         void printOperatorSummary()
         #TODO BaseOperator or SparseMatrix get_op_array() for ops
         void default_op_components(bool direct, SpinBlock& lBlock,
@@ -72,8 +73,6 @@ cdef extern from 'SpinQuantum.h' namespace 'SpinAdapted':
 cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
     # StateInfo class holds
     # some flags hasAllocatedMemory hasCollectedQuanta hasPreviousStateInfo
-    # unCollectedStateInfo previousStateInfo
-    # unBlockedIndex (maybe no use now)
     # oldToNewState (maybe no use now)
     # newQuantaMap (maybe no use now)
     cdef cppclass StateInfo:
@@ -86,6 +85,8 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
         # quantaMap => get_StateInfo_quantaMap
         vector[int] leftUnMapQuanta
         vector[int] rightUnMapQuanta
+        StateInfo *unCollectedStateInfo
+
 
 cdef extern from *:
     # although TensorProduct is defined in namespace SpinAdapted, it can only
@@ -105,13 +106,18 @@ cdef extern from 'itrf.h':
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
                           StateInfo *waveInfo)
     int x_SpinQuantum_irrep(SpinQuantum *sq)
+
     int load_spinblock(char *filespinblock, SpinBlock *b)
     StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
-    vector[int]& x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
+    vector[int] *x_SpinBlock_complementary_sites(SpinBlock *b)
+
+    vector[int] *x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
                                        int rquanta_id)
-    char& x_StateInfo_allowedQuanta(StateInfo *s, int lquanta_id,
+    char *x_StateInfo_allowedQuanta(StateInfo *s, int lquanta_id,
                                     int rquanta_id)
     int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab)
+    void union_StateInfo_quanta(StateInfo *a, StateInfo *b)
+    void assign_deref_shared_ptr[T](T *dest, T *src)
 
 
 # RawAclass does not allocate memory for Aclass._this.  Its pointer _this only
@@ -147,9 +153,13 @@ cdef class RawStateInfo:
         rawq._this = p
         return rawq
     def get_quantaMap(self, lquanta_id, rquanta_id):
-        return x_StateInfo_quantaMap(self._this, lquanta_id, rquanta_id)
+        cdef vector[int] *qmap = x_StateInfo_quantaMap(self._this, lquanta_id,
+                                                       rquanta_id)
+        return qmap[0]
     def get_allowedQuanta(self, lquanta_id, rquanta_id):
-        return x_StateInfo_allowedQuanta(self._this, lquanta_id, rquanta_id)
+        cdef char *a = x_StateInfo_allowedQuanta(self._this, lquanta_id,
+                                                 rquanta_id)
+        return a[0]
     def get_whole_allowedQuanta(self):
         nrow = self._this.leftStateInfo.quanta.size()
         ncol = self._this.leftStateInfo.quanta.size()
@@ -160,6 +170,8 @@ cdef class RawStateInfo:
         def __get__(self): return self._this.leftUnMapQuanta
     property rightUnMapQuanta:
         def __get__(self): return self._this.rightUnMapQuanta
+    def set_unCollectedStateInfo(self, RawStateInfo a):
+        assign_deref_shared_ptr(self._this.unCollectedStateInfo, a._this)
 cdef class NewRawStateInfo(RawStateInfo):
     def __cinit__(self):
         self._this = new StateInfo()
@@ -182,6 +194,13 @@ cdef class RawSpinBlock:
         self._this.default_op_components(direct,
                                          lBlock._this[0], rBlock._this[0],
                                          haveNormops, haveCompops)
+    def set_complementary_sites(self, sites, tot_sites):
+        cdef vector[int] *csites = x_SpinBlock_complementary_sites(self._this)
+        k = 0
+        for i in range(tot_sites):
+            if i not in sites:
+                k += 1
+                csites[0][k] = i
     def set_twoInt(self):
         pass
 cdef class NewRawSpinBlock(RawSpinBlock):
@@ -220,12 +239,13 @@ cdef class RawWavefunction:
     def allowed(self, i, j): return <bint>self._this.allowed(i,j)
     def get_shape(self): return self._this.nrows(), self._this.ncols()
 cdef class NewRawWavefunction(RawWavefunction):
-    def __cinit__(self):
-        self._this = new Wavefunction()
+    #def __cinit__(self):
+    #    self._this = new Wavefunction()
     def __dealloc__(self):
         del self._this
 
     def load(self, wfnfile):
+        self._this = new Wavefunction()
         self.stateInfo = NewRawStateInfo()
         load_wavefunction(wfnfile, self._this, self.stateInfo._this)
 
@@ -237,12 +257,13 @@ cdef class RawMatrix:
 
 cdef class NewRawRotationMatrix:
     cdef vector[Matrix] *_this
-    def __cinit__(self):
-        self._this = new vector[Matrix]()
+    #def __cinit__(self):
+    #    self._this = new vector[Matrix]()
     def __dealloc__(self):
         del self._this
 
     def load(self, filerotmat, nquanta):
+        self._this = new vector[Matrix]()
         self._this.resize(nquanta)
         load_rotmat(filerotmat, self._this)
     def get_matrix_by_quanta_id(self, quanta_id):
@@ -256,6 +277,8 @@ cdef class NewRawRotationMatrix:
         if nrow*ncol > 0:
             memcpy(<double *>mat.data, &mati.element(0,0), nrow*ncol*sizeof(int))
         return mat
+    def get_size(self): return self._this.size()
+
 
 
 #################################################
@@ -270,10 +293,14 @@ def PyTensorProduct(RawStateInfo a, RawStateInfo b, int constraint):
     TensorProduct(a._this[0], b._this[0], c._this[0], constraint, NULL)
     return c
 
-def make_rotmat(RawWavefunction wfn, RawSpinBlock sys, RawSpinBlock big):
+def Pyupdate_rotmat(RawWavefunction wfn, RawSpinBlock sys, RawSpinBlock big):
     # rmat is resized in update_rotmat => makeRotateMatrix => assign_matrix_by_dm
     rmat = NewRawRotationMatrix()
 
     # TODO: add noise
     update_rotmat(rmat._this, wfn._this, sys._this, big._this, 0, 0, 0)
     return rmat
+
+def Pyunion_StateInfo_quanta(RawStateInfo dest, RawStateInfo source):
+    union_StateInfo_quanta(dest._this, source._this)
+    return dest

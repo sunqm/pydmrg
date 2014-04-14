@@ -26,3 +26,8 @@ StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
 {
     return &(const_cast<StateInfo&>(b->get_stateInfo()));
 }
+
+std::vector<int> *x_SpinBlock_complementary_sites(SpinBlock *b)
+{
+    return &(const_cast<std::vector<int>&>(b->get_complementary_sites()));
+}
