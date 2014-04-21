@@ -76,7 +76,7 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
         # quantaMap => get_StateInfo_quantaMap
         vector[int] leftUnMapQuanta
         vector[int] rightUnMapQuanta
-        StateInfo *unCollectedStateInfo
+        StateInfo unCollectedStateInfo
         void quanta_distribution(vector[SpinQuantum]& qnumbers, vector[int]& distribution, bool complement)
 
 cdef extern from 'spinblock.h' namespace 'SpinAdapted':
@@ -137,6 +137,9 @@ cdef extern from 'itrf.h':
     int guess_rotmat(vector[Matrix] *rotateMatrix, SpinBlock *newSystem,
                      int keptstates, int keptqstates)
 
+    void initialize_default_dmrginp()
+    void assign_deref_shared_ptr[T](T& dest, T& src)
+
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
                           StateInfo *waveInfo)
     int x_SpinQuantum_irrep(SpinQuantum *sq)
@@ -153,8 +156,6 @@ cdef extern from 'itrf.h':
                                     int rquanta_id)
     int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab)
     void union_StateInfo_quanta(StateInfo *a, StateInfo *b)
-    void initialize_default_dmrginp()
-    void assign_deref_shared_ptr[T](T *dest, T *src)
 
 
 # RawAclass does not allocate memory for Aclass._this.  Its pointer _this only
@@ -222,7 +223,7 @@ cdef class NewRawStateInfo(RawStateInfo):
         cdef int quantaStates = 1
         self._this = new StateInfo(1, sq._this, &quantaStates)
     def set_unCollectedStateInfo(self, RawStateInfo a):
-        assign_deref_shared_ptr(self._this.unCollectedStateInfo, a._this)
+        assign_deref_shared_ptr(self._this.unCollectedStateInfo, a._this[0])
 
 
 cdef class RawSpinBlock:

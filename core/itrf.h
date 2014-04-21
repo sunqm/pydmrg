@@ -7,6 +7,7 @@
 #include <boost/serialization/vector.hpp>
 
 #include "rotmat.h"
+#include "hacks.h"
 
 using namespace SpinAdapted;
 
@@ -21,8 +22,9 @@ int load_spinblock(char *filespinblock, SpinBlock *b);
 StateInfo *x_SpinBlock_stateInfo(SpinBlock *b);
 std::vector<int> *x_SpinBlock_complementary_sites(SpinBlock *b);
 //void build_SpinBlock_ops(SpinBlock *b);
-void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, const StateInfo& si,
-                                     std::vector<int>& envSites, bool haveNormops);
+void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, StateInfo& si,
+                                     std::vector<int>& environmentSites,
+                                     bool haveNormops);
 
 
 std::vector<int> *x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
@@ -32,8 +34,3 @@ char *x_StateInfo_allowedQuanta(StateInfo *s, int lquanta_id,
 int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab);
 void union_StateInfo_quanta(StateInfo *a, StateInfo *b);
 
-
-
-void initialize_default_dmrginp();
-template <class T>
-void assign_deref_shared_ptr(shared_ptr<T>& dest, T *src);

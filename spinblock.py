@@ -82,14 +82,13 @@ class SpinBlock(object):
 
 
 def InitStartingBlock(forward=True, forward_starting_size=1,
-                      backward_starting_size=1, restartSize=1, restart=False,
+                      backward_starting_size=1,
                       add_noninteracting_orbs=True,
                       molecule_quantum_tot_spin=0):
-    assert(not restart)
     startingBlock = SpinBlock()
     if forward:
         startingBlock.init_by_dot_id(0, forward_starting_size-1, True)
-        if add_noninteracting_orbs && molecule_quantum_tot_spin != 0:
+        if add_noninteracting_orbs and molecule_quantum_tot_spin != 0:
             s = quanta.SpinQuantum()
             s.init(nparticle, spin, irrep_id) # fixme, nparticle =?= spin, see initblocks.C
             addstate = stateinfo.StateInfo()
@@ -142,7 +141,7 @@ def InitNewEnvironmentBlock(environ, environDot, system, systemDot):
                                      NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
         si = stateinfo.CollectQuanta(si)
         #we may need to store environ newenviron for later use
-        if !onedot:
+        if not onedot:
             si = stateinfo.TensorProduct(si, environDot.stateInfo,
                                          NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
             si = stateinfo.CollectQuanta(si)

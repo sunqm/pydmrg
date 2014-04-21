@@ -7,7 +7,9 @@ import spinblock
 import stateinfo
 import quanta
 
-def do_one(sys):
+def do_one(forward, warmUp=False):
+    forward_starting_size = 1
+    backward_starting_size = 1
     sys = spinblock.InitStartingBlock(forward, forward_starting_size,
                                       backward_starting_size)
     assert(0)
@@ -50,7 +52,7 @@ def BlockAndDecimate(system, useSlater, dot_with_sys, onedot):
     envDot = spinblock.SpinBloc()
     envDot.init_by_dot_id(*somesys_to_decide.system_dot_start_end(forward, dot_size))
 
-    if onedot || dot_with_sys:
+    if onedot or dot_with_sys:
         system.addAdditionalCompOps()
         newsys = InitNewSystemBlock(system, sysDot)
     else:
@@ -59,7 +61,7 @@ def BlockAndDecimate(system, useSlater, dot_with_sys, onedot):
     if onedot:
         envrion, newenv = spinblock.InitNewEnvironmentBlock(sysDot, system,
                                                             sysDot, options)
-    elif:
+    else:
         envrion, newenv = spinblock.InitNewEnvironmentBlock(envrionDot, system,
                                                             sysDot, options)
 
@@ -110,7 +112,7 @@ def BlockAndDecimate(system, useSlater, dot_with_sys, onedot):
 #                    useSlater, sweepParams.get_sweep_iter()):
 def RenormaliseFrom(big, newsys):
     rawfn, energy = _dmrg.Pysolve_wavefunction(big._raw)
-    if onedot and !dot_with_sys:
+    if onedot and not dot_with_sys:
         newsys = spinblock.InitNewSystemBlock(system, systemDot)
         newbig = spinblock.InitBigBlock(newsys, envrion)
         rawfn = _dmrg.Pyonedot_shufflesysdot(big.stateInfo._raw,

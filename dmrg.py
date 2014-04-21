@@ -10,9 +10,9 @@ def dmrg_single(tol):
     # use some dmrginp default settings
     _dmrg.Pyinitialize_defaults()
 
-    eforward = sweep.do_one()
+    eforward = sweep.do_one(True, True)
     ebackward = 0
-    for isweep < range(max_sweep_cyc):
+    for isweep in range(max_sweep_cyc):
         old_ef = eforward
         old_eb = ebackward
         ebackward = sweep.do_one()
@@ -22,3 +22,7 @@ def dmrg_single(tol):
         if abs(eforward-old_ef) < tol or abs(ebackward-old_eb) < tol:
             break
     #TODO: extapolate energy
+
+
+if __name__ == '__main__':
+    dmrg_single(1e-6)
