@@ -6,6 +6,7 @@ import os
 #from libc.stdlib cimport malloc, free
 from libcpp.vector cimport vector
 from libcpp cimport bool
+from libcpp.string cimport string
 #from cpython cimport bool
 from libc.string cimport memcpy
 import numpy
@@ -137,7 +138,7 @@ cdef extern from 'itrf.h':
     int guess_rotmat(vector[Matrix] *rotateMatrix, SpinBlock *newSystem,
                      int keptstates, int keptqstates)
 
-    void initialize_default_dmrginp()
+    void initialize_default_dmrginp(char *fcidump, string prefix, string sym)
     void assign_deref_shared_ptr[T](T& dest, T& src)
 
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
@@ -346,8 +347,8 @@ cdef class NewRawRotationMatrix(RawRotationMatrix):
 #
 #################################################
 
-def Pyinitialize_defaults():
-    initialize_default_dmrginp()
+def Pyinitialize_defaults(fcidump, prefix, sym):
+    initialize_default_dmrginp(fcidump, prefix, sym)
 
 def PyTensorProduct(RawStateInfo a, RawStateInfo b, int constraint):
     c = NewRawStateInfo()

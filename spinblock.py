@@ -22,7 +22,9 @@ class SpinBlock(object):
 
     def init_by_dot_id(self, dot_start, dot_end, is_complement=0):
         self._raw.init_by_dot_id(dot_start, dot_end, is_complement)
-        self.stateInfo.refresh_by(self._raw.get_stateInfo())
+        # refresh_by cannot be called here because the quanta are not fully initalized yet
+        #self.stateInfo.refresh_by(self._raw.get_stateInfo())
+        self.stateInfo._raw = self._raw.get_stateInfo()
 
     def init_by_stateinfo(self, si):
         self._raw.init_by_stateinfo(si._raw)
@@ -40,6 +42,7 @@ class SpinBlock(object):
         self._sync_raw2self()
 
     def save(self):
+        self._sync_self2raw()
         print 'TODO: store me'
 
     def _sync_raw2self(self):

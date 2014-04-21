@@ -6,9 +6,11 @@
 import _dmrg
 import sweep
 
-def dmrg_single(tol):
+def dmrg_single(tol, fcidump):
     # use some dmrginp default settings
-    _dmrg.Pyinitialize_defaults()
+    scratch_prefix = '/dev/shm'
+    symmetry = 'd2h'
+    _dmrg.Pyinitialize_defaults(fcidump, scratch_prefix, symmetry)
 
     eforward = sweep.do_one(True, True)
     ebackward = 0
@@ -25,4 +27,5 @@ def dmrg_single(tol):
 
 
 if __name__ == '__main__':
-    dmrg_single(1e-6)
+    import sys
+    dmrg_single(1e-6, sys.argv[1])
