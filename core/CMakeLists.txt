@@ -55,7 +55,7 @@ link_directories(
 
 add_library(_dmrg SHARED 
   _dmrg.cpp quanta.cc rotmat.cc wavefn.cc stateinfo.cc spinblock.cc
-  hacker.cc)
+  hacks.cc)
 set_target_properties(_dmrg PROPERTIES PREFIX ""
   LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../)
 

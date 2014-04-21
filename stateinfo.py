@@ -28,6 +28,12 @@ class StateInfo(object):
         #how to initialize:
         # self.unCollectedStateInfo self.leftStateInfo self.rightStateInfo
 
+    def init_by_spinquantum(self, n, sq, qs_lst):
+        if n > 1 or len(qs_lst) > 1:
+            raise ValueError('TODO: initialize StateInfo')
+        self._raw = _dmrg.NewRawStateInfo()
+        self._raw.init_by_a_spinquantum(sq._raw)
+
     def _sync_raw2self(self):
         self.totalStates = sum(self._raw.quantaStates)
         self.quantaStates = self._raw.quantaStates
@@ -53,21 +59,21 @@ class StateInfo(object):
         '''return True/False'''
         return self._raw.get_allowedQuanta(lquanta_id, rquanta_id)
 
-    def CollectQuanta(self):
-        # make self as an unCollectedStateInfo for a new StateInfo
-        newsi = StateInfo()
-        newsi._raw = _dmrg.NewRawStateInfo()
-        _dmrg.Pyunion_StateInfo_quanta(newsi._raw, self._raw)
-        newsi.unCollectedStateInfo = self
-        newsi.set_unCollectedStateInfo(self._raw)
-        newsi._sync_raw2self()
+def CollectQuanta(old_stateinfo):
+    # make self as an unCollectedStateInfo for a new StateInfo
+    newsi = StateInfo()
+    newsi._raw = _dmrg.NewRawStateInfo()
+    _dmrg.Pyunion_StateInfo_quanta(newsi._raw, old_stateinfo._raw)
+    newsi.unCollectedStateInfo = old_stateinfo
+    newsi.set_unCollectedStateInfo(old_stateinfo._raw)
+    newsi._sync_raw2self()
 
-        newsi.leftStateInfo = self.leftStateInfo
-        newsi.rightStateInfo = self.rightStateInfo
-        # NOTE avoid the following two being overwritten by _sync_raw2self
-        newsi.leftUnMapQuanta = self.leftUnMapQuanta;
-        newsi.rightUnMapQuanta = self.rightUnMapQuanta;
-        return newsi
+    newsi.leftStateInfo = old_stateinfo.leftStateInfo
+    newsi.rightStateInfo = old_stateinfo.rightStateInfo
+    # NOTE avoid the following two being overwritten by _sync_raw2self
+    newsi.leftUnMapQuanta = old_stateinfo.leftUnMapQuanta;
+    newsi.rightUnMapQuanta = old_stateinfo.rightUnMapQuanta;
+    return newsi
 
 
 def TensorProduct(a, b, constraint=0):

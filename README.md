@@ -6,19 +6,19 @@ Python wrapper for Block code
 
 Structure
 ---------
-        +-----------------------------------------------+
-        |   pydmrg.Wavefunction, pydmrg.SpinBlock ...   |
-        +-----------------------------------------------+
-                        A  |  A  |  A  |
-                        |  V  |  V  |  V
-        +-----------------------------------------------+
-        | _dmrg.RawWavefunction, _dmrg.RawSpinBlock ... |
-        +-----------------------------------------------+
-                        A  |  A  |  A  |
-                        |  V  |  V  |  V
-        +-----------------------------------------------+
-        |     Block.Wavefunction, Block.SpinBlock ...   |
-        +-----------------------------------------------+
+                        +-----------------------------------------------+
+    Pydmrg layer        |   pydmrg.Wavefunction, pydmrg.SpinBlock ...   |
+                        +-----------------------------------------------+
+                                        A  |  A  |  A  |
+                                        |  V  |  V  |  V
+                        +-----------------------------------------------+
+    Python C-API layer  | _dmrg.RawWavefunction, _dmrg.RawSpinBlock ... |
+                        +-----------------------------------------------+
+                                        A  |  A  |  A  |
+                                        |  V  |  V  |  V
+                        +-----------------------------------------------+
+    Block code layer    |     Block.Wavefunction, Block.SpinBlock ...   |
+                        +-----------------------------------------------+
 
 * _dmrg is lower interface layer which directly access Block code.
   It provides the most basic functions or class to represent the

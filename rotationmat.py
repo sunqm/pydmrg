@@ -7,7 +7,7 @@ import os, sys
 import _dmrg
 
 class RotationMatrix(object):
-    def __init__(self, matfiles):
+    def __init__(self, matfiles=[]):
         self._matfiles = matfiles
 
     def load(self, mat_id, nquanta):

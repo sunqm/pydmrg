@@ -8,7 +8,7 @@ import quanta
 
 class SpinQuantum(object):
     def __init__(self):
-        pass
+        self._raw = _dmrg.NewRawSpinQuantum()
 
     def refresh_by(self, rawquanta):
         assert(isinstance(rawquanta, _dmrg.RawSpinQuantum))
@@ -22,4 +22,10 @@ class SpinQuantum(object):
 
     def _sync_self2raw(self):
         pass
+
+    def init(self, nparticle, spin, irrep_id):
+        self._raw.init(nparticle, spin, irrep_id)
+        self.particleNumber = nparticle
+        self.totalSpin = spin
+        self.irrep = irrep_id
 

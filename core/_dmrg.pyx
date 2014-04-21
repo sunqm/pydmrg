@@ -42,7 +42,42 @@ cdef extern from 'wavefunction.h' namespace 'SpinAdapted':
     # SparseMatrix need to be tracked
     #   ObjectMatrix<Matrix> operatorMatrix;
     cdef cppclass Wavefunction(SparseMatrix):
+        Wavefunction()
+        Wavefunction(Wavefunction& wfn)
         bool& get_onedot()
+
+cdef extern from 'IrrepSpace.h' namespace 'SpinAdapted':
+    cdef cppclass IrrepSpace:
+        IrrepSpace(int ir)
+
+cdef extern from 'SpinQuantum.h' namespace 'SpinAdapted':
+    cdef cppclass SpinQuantum:
+        int particleNumber
+        int totalSpin
+        # IrrepSpace orbitalSymmetry;
+        SpinQuantum()
+        SpinQuantum(int p, int s, IrrepSpace orbS)
+
+
+cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
+    # StateInfo class holds
+    # some flags hasAllocatedMemory hasCollectedQuanta hasPreviousStateInfo
+    # oldToNewState (maybe no use now)
+    # newQuantaMap (maybe no use now)
+    cdef cppclass StateInfo:
+        StateInfo()
+        StateInfo(int n, SpinQuantum *q, const int *qS)
+        StateInfo *leftStateInfo
+        StateInfo *rightStateInfo
+        int totalStates
+        vector[int] quantaStates
+        vector[SpinQuantum] quanta
+        # allowedQuanta => get_StateInfo_allowedQuanta
+        # quantaMap => get_StateInfo_quantaMap
+        vector[int] leftUnMapQuanta
+        vector[int] rightUnMapQuanta
+        StateInfo *unCollectedStateInfo
+        void quanta_distribution(vector[SpinQuantum]& qnumbers, vector[int]& distribution, bool complement)
 
 cdef extern from 'spinblock.h' namespace 'SpinAdapted':
     # SpinBlock class holds
@@ -54,6 +89,7 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
     cdef cppclass SpinBlock:
         SpinBlock()
         SpinBlock(int start, int finish, bool is_complement)
+        SpinBlock(StateInfo& s)
         vector[int]& get_sites()
         # complementary_sites = [all i not in sites], only op_component.C uses
         # it to search the sites which are connected to complementary by ops
@@ -62,39 +98,35 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
         void default_op_components(bool direct, SpinBlock& lBlock,
                                    SpinBlock& rBlock, bool haveNormops,
                                    bool haveCompops)
-
-
-cdef extern from 'SpinQuantum.h' namespace 'SpinAdapted':
-    cdef cppclass SpinQuantum:
-        int particleNumber
-        int totalSpin
-        # IrrepSpace orbitalSymmetry;
-
-cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
-    # StateInfo class holds
-    # some flags hasAllocatedMemory hasCollectedQuanta hasPreviousStateInfo
-    # oldToNewState (maybe no use now)
-    # newQuantaMap (maybe no use now)
-    cdef cppclass StateInfo:
-        StateInfo *leftStateInfo
-        StateInfo *rightStateInfo
-        int totalStates
-        vector[int] quantaStates
-        vector[SpinQuantum] quanta
-        # allowedQuanta => get_StateInfo_allowedQuanta
-        # quantaMap => get_StateInfo_quantaMap
-        vector[int] leftUnMapQuanta
-        vector[int] rightUnMapQuanta
-        StateInfo *unCollectedStateInfo
-
+        void build_iterators()
+        #void build_operators(std::vector<Csf>& s, std::vector<<std::vector<Csf> >& ladders)
+        void build_operators()
+        void setstoragetype(int)
+        #StateInfo& get_stateInfo() by x_SpinBlock_stateInfo
+        void addAdditionalCompOps() #TODO: direct access ops
+        void set_big_components() #TODO: direct access ops
+        void transform_operators(vector[Matrix]& rotateMatrix)
+        void BuildTensorProductBlock(vector[int]& new_sites)
+            
+cdef extern from 'sweep_params.h' namespace 'SpinAdapted':
+    cdef enum guessWaveTypes:
+        BASIC, TRANSFORM, TRANSPOSE
 
 cdef extern from *:
     # although TensorProduct is defined in namespace SpinAdapted, it can only
     # be correctly found by gcc in the global namespace
-    # test on clang is needed
+    # tests on clang is required
     void TensorProduct(StateInfo& a, StateInfo& b, StateInfo& c,
                        int constraint, StateInfo* compState)
+cdef extern from 'solver.h' namespace 'SpinAdapted::Solver':
+    void solve_wavefunction(vector[Wavefunction]& solution, vector[double]& energies,
+                            SpinBlock& big, double tol, int guesswavetype,
+                            bool& onedot, bool& dot_with_sys, bool& warmUp,
+                            double additional_noise)
 
+cdef extern from 'guess_wavefunction.h' namespace 'SpinAdapted::GuessWave':
+    void onedot_shufflesysdot(StateInfo& guessstateinfo, StateInfo& transposestateinfo,
+                              Wavefunction& guesswf, Wavefunction& transposewf)
 
 
 cdef extern from 'itrf.h':
@@ -102,6 +134,8 @@ cdef extern from 'itrf.h':
     int update_rotmat(vector[Matrix] *rotateMatrix,
                       Wavefunction *wfn, SpinBlock *sys, SpinBlock *big,
                       int keptstates, int keptqstates, double noise)
+    int guess_rotmat(vector[Matrix] *rotateMatrix, SpinBlock *newSystem,
+                     int keptstates, int keptqstates)
 
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
                           StateInfo *waveInfo)
@@ -110,6 +144,8 @@ cdef extern from 'itrf.h':
     int load_spinblock(char *filespinblock, SpinBlock *b)
     StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
     vector[int] *x_SpinBlock_complementary_sites(SpinBlock *b)
+    void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, StateInfo& si,
+                                         vector[int]& envSites, bool haveNormops)
 
     vector[int] *x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
                                        int rquanta_id)
@@ -117,6 +153,7 @@ cdef extern from 'itrf.h':
                                     int rquanta_id)
     int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab)
     void union_StateInfo_quanta(StateInfo *a, StateInfo *b)
+    void initialize_default_dmrginp()
     void assign_deref_shared_ptr[T](T *dest, T *src)
 
 
@@ -137,6 +174,11 @@ cdef class NewRawSpinQuantum(RawSpinQuantum):
         self._this = new SpinQuantum()
     def __dealloc__(self):
         del self._this
+    def init(self, nparticle, spin, irrep_id):
+        del self._this
+        cdef IrrepSpace *irrep = new IrrepSpace(irrep_id)
+        self._this = new SpinQuantum(nparticle, spin, irrep[0])
+        del irrep
 
 
 cdef class RawStateInfo:
@@ -170,13 +212,17 @@ cdef class RawStateInfo:
         def __get__(self): return self._this.leftUnMapQuanta
     property rightUnMapQuanta:
         def __get__(self): return self._this.rightUnMapQuanta
-    def set_unCollectedStateInfo(self, RawStateInfo a):
-        assign_deref_shared_ptr(self._this.unCollectedStateInfo, a._this)
 cdef class NewRawStateInfo(RawStateInfo):
     def __cinit__(self):
         self._this = new StateInfo()
     def __dealloc__(self):
         del self._this
+    def init_by_a_spinquantum(self, RawSpinQuantum sq):
+        del self._this
+        cdef int quantaStates = 1
+        self._this = new StateInfo(1, sq._this, &quantaStates)
+    def set_unCollectedStateInfo(self, RawStateInfo a):
+        assign_deref_shared_ptr(self._this.unCollectedStateInfo, a._this)
 
 
 cdef class RawSpinBlock:
@@ -188,12 +234,30 @@ cdef class RawSpinBlock:
     def get_sites(self): return self._this.get_sites()
     def printOperatorSummary(self):
         self._this.printOperatorSummary()
+cdef class NewRawSpinBlock(RawSpinBlock):
+    def __cinit__(self):
+        self._this = new SpinBlock()
+    def __dealloc__(self):
+        del self._this
+    def load(self, filespinblock):
+        load_spinblock(filespinblock, self._this)
+    def init_by_dot_id(self, int start, int finish, is_complement=0):
+        del self._this
+        # FIXME: SpinBlock(start,finish) calls dmrginp
+        self._this = new SpinBlock(start, finish, is_complement)
+    def init_by_stateinfo(self, RawStateInfo si):
+        del self._this
+        self._this = new SpinBlock(si._this[0])
+    def BuildTensorProductBlock(self, sites):
+        self._this.BuildTensorProductBlock(sites)
     def default_op_components(self, direct,
                               RawSpinBlock lBlock, RawSpinBlock rBlock,
-                              haveNormops, haveCompops):
+                              haveNormops, haveCompops, storagetype=0):
+        # storage type can be one of 0 = LOCAL_STORAGE, 1 = DISTRIBUTED_STORAGE
         self._this.default_op_components(direct,
                                          lBlock._this[0], rBlock._this[0],
                                          haveNormops, haveCompops)
+        self.setstoragetype(storagetype)
     def set_complementary_sites(self, sites, tot_sites):
         cdef vector[int] *csites = x_SpinBlock_complementary_sites(self._this)
         k = 0
@@ -203,16 +267,15 @@ cdef class RawSpinBlock:
                 csites[0][k] = i
     def set_twoInt(self):
         pass
-cdef class NewRawSpinBlock(RawSpinBlock):
-    #def __cinit__(self):
-    #    self._this = new SpinBlock()
-    def __dealloc__(self):
-        del self._this
-    def load(self, filespinblock):
-        self._this = new SpinBlock()
-        load_spinblock(filespinblock, self._this)
-    def init_by_dot_id(self, int start, int finish, is_complement=0):
-        self._this = new SpinBlock(start, finish, is_complement)
+    def build_ops(self): # TODO add csf for overloaded build_operators
+        self._this.build_iterators()
+        self._this.build_operators()
+    def addAdditionalCompOps(self):
+        self._this.addAdditionalCompOps()
+    def set_big_components(self):
+        self._this.set_big_components()
+    def transform_operators(self, RawRotationMatrix rotatemat):
+        self._this.transform_operators(rotatemat._this[0])
 
 
 cdef class RawSparseMatrix:
@@ -239,13 +302,11 @@ cdef class RawWavefunction:
     def allowed(self, i, j): return <bint>self._this.allowed(i,j)
     def get_shape(self): return self._this.nrows(), self._this.ncols()
 cdef class NewRawWavefunction(RawWavefunction):
-    #def __cinit__(self):
-    #    self._this = new Wavefunction()
+    def __cinit__(self):
+        self._this = new Wavefunction()
     def __dealloc__(self):
         del self._this
-
     def load(self, wfnfile):
-        self._this = new Wavefunction()
         self.stateInfo = NewRawStateInfo()
         load_wavefunction(wfnfile, self._this, self.stateInfo._this)
 
@@ -255,17 +316,8 @@ cdef class RawMatrix:
     def get_shape(self):
         return self._this.Nrows(), self._this.Ncols()
 
-cdef class NewRawRotationMatrix:
+cdef class RawRotationMatrix:
     cdef vector[Matrix] *_this
-    #def __cinit__(self):
-    #    self._this = new vector[Matrix]()
-    def __dealloc__(self):
-        del self._this
-
-    def load(self, filerotmat, nquanta):
-        self._this = new vector[Matrix]()
-        self._this.resize(nquanta)
-        load_rotmat(filerotmat, self._this)
     def get_matrix_by_quanta_id(self, quanta_id):
         #mat = RawMatrix()
         #mat._this = &self._this.at(qid) # bug: vague return type?
@@ -278,12 +330,23 @@ cdef class NewRawRotationMatrix:
             memcpy(<double *>mat.data, &mati.element(0,0), nrow*ncol*sizeof(int))
         return mat
     def get_size(self): return self._this.size()
+cdef class NewRawRotationMatrix(RawRotationMatrix):
+    def __cinit__(self):
+        self._this = new vector[Matrix]()
+    def __dealloc__(self):
+        del self._this
+    def load(self, filerotmat, nquanta):
+        self._this.resize(nquanta)
+        load_rotmat(filerotmat, self._this)
 
 
 
 #################################################
 #
 #################################################
+
+def Pyinitialize_defaults():
+    initialize_default_dmrginp()
 
 def PyTensorProduct(RawStateInfo a, RawStateInfo b, int constraint):
     c = NewRawStateInfo()
@@ -304,3 +367,35 @@ def Pyupdate_rotmat(RawWavefunction wfn, RawSpinBlock sys, RawSpinBlock big):
 def Pyunion_StateInfo_quanta(RawStateInfo dest, RawStateInfo source):
     union_StateInfo_quanta(dest._this, source._this)
     return dest
+
+def PyBuildSlaterBlock_with_stateinfo(RawSpinBlock environ, RawStateInfo si,
+                                      envSites, haveNormops):
+    BuildSlaterBlock_with_stateinfo(environ._this[0], si._this[0], envSites,
+                                    haveNormops)
+
+def Pysolve_wavefunction(RawSpinBlock big, more_opts=[]):
+    cdef vector[Wavefunction] solution
+    cdef vector[double] energies
+    tol = 1e-8
+    cdef guessWaveTypes guesstype = BASIC
+    onedot = 1
+    dot_with_sys = 1
+    warmUp = 1
+    additional_noise = 1e-6
+    solve_wavefunction(solution, energies, big._this[0], tol, guesstype,
+                       onedot, dot_with_sys, warmUp, additional_noise)
+    wfn = NewRawWavefunction()
+    wfn._this[0] = solution[0]
+    return wfn, energies[0]
+
+def Pyonedot_shufflesysdot(RawStateInfo sguess, RawStateInfo stranspose,
+                           RawWavefunction wfguess):
+    wftranspose = NewRawWavefunction()
+    onedot_shufflesysdot(sguess._this[0], stranspose._this[0],
+                         wfguess._this[0], wftranspose._this[0])
+    return wftranspose
+
+def Pyguess_rotmat(RawSpinBlock newsys, keptstates, keptqstates):
+    rotmat = NewRawRotationMatrix()
+    guess_rotmat(rotmat._this, newsys._this, keptstates, keptqstates)
+    return rotmat

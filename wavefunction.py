@@ -47,6 +47,17 @@ class Wavefunction(object):
         self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
         self._sync_raw2self()
 
+    def save(self):
+        pass
+
+    def refresh_by(self, rawfn):
+        self._raw = rawfn
+        self.stateInfo = stateinfo.StateInfo()
+        self.stateInfo.refresh_by(self._raw.stateInfo)
+        self.deltaQuantum = quanta.SpinQuantum()
+        self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
+        self._sync_raw2self()
+
     def _sync_raw2self(self):
         self.orbs = self._raw.get_orbs()
         self.sign = self._raw.get_sign()

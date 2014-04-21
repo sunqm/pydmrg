@@ -3,11 +3,11 @@
  */
 
 #include "config.h"
+#include <boost/serialization/vector.hpp>
 #include "wavefunction.h"
 #include "spinblock.h"
 #include "SpinQuantum.h"
 #include "MatrixBLAS.h"
-#include <boost/serialization/vector.hpp>
 
 using namespace SpinAdapted;
 
