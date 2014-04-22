@@ -30,3 +30,12 @@ Structure
   raw class.
 
 * put sanity check or complicated stuff in xxx.py
+
+
+Patch to Block
+--------------
+* in spinblock.h add
+  void set_leftBlock(SpinBlock *b) { leftBlock = b; }
+  void set_rightBlock(SpinBlock *b) { rightBlock = b; }
+  boost::shared_ptr<TwoElectronArray>& x_twoInt() { return twoInt; }
+

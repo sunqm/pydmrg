@@ -66,6 +66,7 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
     # oldToNewState (maybe no use now)
     # newQuantaMap (maybe no use now)
     cdef cppclass StateInfo:
+        bool initialised
         StateInfo()
         StateInfo(int n, SpinQuantum *q, const int *qS)
         StateInfo *leftStateInfo
@@ -78,7 +79,9 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
         vector[int] leftUnMapQuanta
         vector[int] rightUnMapQuanta
         StateInfo unCollectedStateInfo
-        void quanta_distribution(vector[SpinQuantum]& qnumbers, vector[int]& distribution, bool complement)
+        void AllocateUnCollectedStateInfo()
+        void quanta_distribution(vector[SpinQuantum]& qnumbers, vector[int]& distribution,
+                                 bool complement)
 
 cdef extern from 'spinblock.h' namespace 'SpinAdapted':
     # SpinBlock class holds
@@ -86,7 +89,6 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
     # some flags complementary normal loopblock localstorage
     #            hasMemoryAllocated direct
     # name??
-    # *leftBlock *rightBlock
     cdef cppclass SpinBlock:
         SpinBlock()
         SpinBlock(int start, int finish, bool is_complement)
@@ -108,6 +110,9 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
         void set_big_components() #TODO: direct access ops
         void transform_operators(vector[Matrix]& rotateMatrix)
         void BuildTensorProductBlock(vector[int]& new_sites)
+        void set_loopblock(bool p_loopblock)
+    cdef enum Storagetype:
+        LOCAL_STORAGE, DISTRIBUTED_STORAGE
             
 cdef extern from 'sweep_params.h' namespace 'SpinAdapted':
     cdef enum guessWaveTypes:
@@ -139,6 +144,7 @@ cdef extern from 'itrf.h':
                      int keptstates, int keptqstates)
 
     void initialize_default_dmrginp(char *fcidump, string prefix, string sym)
+    int get_last_site_id()
     void assign_deref_shared_ptr[T](T& dest, T& src)
 
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
@@ -150,6 +156,10 @@ cdef extern from 'itrf.h':
     vector[int] *x_SpinBlock_complementary_sites(SpinBlock *b)
     void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, StateInfo& si,
                                          vector[int]& envSites, bool haveNormops)
+    void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
+                                         SpinBlock *rblock, vector[int]& sites,
+                                         StateInfo *si)
+    void set_SpinBlock_twoInt(SpinBlock *self)
 
     vector[int] *x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
                                        int rquanta_id)
@@ -223,8 +233,14 @@ cdef class NewRawStateInfo(RawStateInfo):
         del self._this
         cdef int quantaStates = 1
         self._this = new StateInfo(1, sq._this, &quantaStates)
-    def set_unCollectedStateInfo(self, RawStateInfo a):
-        assign_deref_shared_ptr(self._this.unCollectedStateInfo, a._this[0])
+    def set_unCollectedStateInfo(self, RawStateInfo old):
+        self._this.initialised = True
+        self._this.AllocateUnCollectedStateInfo()
+        self._this.leftStateInfo    = old._this.leftStateInfo
+        self._this.rightStateInfo   = old._this.rightStateInfo
+        self._this.leftUnMapQuanta  = old._this.leftUnMapQuanta
+        self._this.rightUnMapQuanta = old._this.rightUnMapQuanta
+        assign_deref_shared_ptr(self._this.unCollectedStateInfo, old._this[0])
 
 
 cdef class RawSpinBlock:
@@ -259,16 +275,14 @@ cdef class NewRawSpinBlock(RawSpinBlock):
         self._this.default_op_components(direct,
                                          lBlock._this[0], rBlock._this[0],
                                          haveNormops, haveCompops)
-        self.setstoragetype(storagetype)
-    def set_complementary_sites(self, sites, tot_sites):
+        cdef Storagetype t = storagetype
+        self._this.setstoragetype(t)
+    def set_complementary_sites(self, c_sites):
         cdef vector[int] *csites = x_SpinBlock_complementary_sites(self._this)
-        k = 0
-        for i in range(tot_sites):
-            if i not in sites:
-                k += 1
-                csites[0][k] = i
+        for i in c_sites:
+            csites[0].push_back(i)
     def set_twoInt(self):
-        pass
+        set_SpinBlock_twoInt(self._this)
     def build_ops(self): # TODO add csf for overloaded build_operators
         self._this.build_iterators()
         self._this.build_operators()
@@ -278,6 +292,12 @@ cdef class NewRawSpinBlock(RawSpinBlock):
         self._this.set_big_components()
     def transform_operators(self, RawRotationMatrix rotatemat):
         self._this.transform_operators(rotatemat._this[0])
+    def sync(self, RawSpinBlock lblock, RawSpinBlock rblock,
+             vector[int] sites, RawStateInfo si):
+        set_SpinBlock_for_BuildSumBlock(self._this, lblock._this, rblock._this,
+                                        sites, si._this)
+    def set_loopblock(self, tf):
+        self._this.set_loopblock(tf)
 
 
 cdef class RawSparseMatrix:
@@ -401,3 +421,6 @@ def Pyguess_rotmat(RawSpinBlock newsys, keptstates, keptqstates):
     rotmat = NewRawRotationMatrix()
     guess_rotmat(rotmat._this, newsys._this, keptstates, keptqstates)
     return rotmat
+
+def Pyget_last_site_id():
+    return get_last_site_id()

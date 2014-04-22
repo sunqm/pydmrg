@@ -8,7 +8,8 @@ import _dmrg
 import quanta
 
 class StateInfo(object):
-    def __init__(self):
+    def __init__(self, dmrg_env=None):
+        self._env = dmrg_env
         self.totalStates = 0
         self.quantaStates = []
         self.allowedQuanta = numpy.ones((0,0),dtype=bool)
@@ -39,12 +40,11 @@ class StateInfo(object):
         self.quantaStates = self._raw.quantaStates
         self.unBlockedIndex = [sum(self.quantaStates[:i]) \
                                for i,_ in enumerate(self.quantaStates)]
-        self.allowedQuanta = self._raw.get_whole_allowedQuanta()
-        self.leftUnMapQuanta = self._raw.leftUnMapQuanta
-        self.rightUnMapQuanta = self._raw.leftUnMapQuanta
-
-    def _sync_self2raw(self):
-        pass
+        if self.leftStateInfo is not None \
+           and self.rightStateInfo is not None:
+            self.allowedQuanta = self._raw.get_whole_allowedQuanta()
+        #self.leftUnMapQuanta = self._raw.leftUnMapQuanta
+        #self.rightUnMapQuanta = self._raw.leftUnMapQuanta
 
     def get_quanta(self, quanta_id):
         spinquanta = quanta.SpinQuantum()
@@ -65,14 +65,14 @@ def CollectQuanta(old_stateinfo):
     newsi._raw = _dmrg.NewRawStateInfo()
     _dmrg.Pyunion_StateInfo_quanta(newsi._raw, old_stateinfo._raw)
     newsi.unCollectedStateInfo = old_stateinfo
-    newsi.set_unCollectedStateInfo(old_stateinfo._raw)
+    newsi._raw.set_unCollectedStateInfo(old_stateinfo._raw)
     newsi._sync_raw2self()
 
     newsi.leftStateInfo = old_stateinfo.leftStateInfo
     newsi.rightStateInfo = old_stateinfo.rightStateInfo
     # NOTE avoid the following two being overwritten by _sync_raw2self
-    newsi.leftUnMapQuanta = old_stateinfo.leftUnMapQuanta;
-    newsi.rightUnMapQuanta = old_stateinfo.rightUnMapQuanta;
+    newsi.leftUnMapQuanta = old_stateinfo.leftUnMapQuanta
+    newsi.rightUnMapQuanta = old_stateinfo.rightUnMapQuanta
     return newsi
 
 

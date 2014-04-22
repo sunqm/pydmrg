@@ -4,9 +4,11 @@
  * Some hack functions to cheat cython compiler and Block global variables
  */
 
+#include <stdio.h>
 #include <boost/shared_ptr.hpp>
 
 void initialize_default_dmrginp(char *fcidump, std::string& prefix, std::string& sym);
+int get_last_site_id();
 
 /*
  * Since cython does not support dereference,  operator*(), *px of shared_ptr

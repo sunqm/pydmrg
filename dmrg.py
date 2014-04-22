@@ -6,13 +6,22 @@
 import _dmrg
 import sweep
 
+class DMRGEnv(object):
+    def __init__(self, **keywords):
+        self.scratch_prefix = '/tmp'
+        self.sys_add = 1
+        self.env_add = 1
+        self.tot_sites = _dmrg.Pyget_last_site_id() + 1
+        self.max_blk_cyc = 20
+
 def dmrg_single(tol, fcidump):
     # use some dmrginp default settings
     scratch_prefix = '/dev/shm'
     symmetry = 'd2h'
     _dmrg.Pyinitialize_defaults(fcidump, scratch_prefix, symmetry)
+    dmrg_env = DMRGEnv()
 
-    eforward = sweep.do_one(True, True)
+    eforward = sweep.do_one(dmrg_env, True, True)
     ebackward = 0
     for isweep in range(max_sweep_cyc):
         old_ef = eforward

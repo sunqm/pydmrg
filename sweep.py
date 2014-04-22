@@ -7,88 +7,107 @@ import spinblock
 import stateinfo
 import quanta
 
-def do_one(forward, warmUp=False):
+# guesswaveTypes
+BASIC = 1
+TRANSFORM = 2
+TRANSPOSE = 3
+
+def do_one(dmrg_env, forward, warmUp=False):
     forward_starting_size = 1
     backward_starting_size = 1
-    sys = spinblock.InitStartingBlock(forward, forward_starting_size,
+    sys = spinblock.InitStartingBlock(dmrg_env, forward, forward_starting_size,
                                       backward_starting_size)
-    assert(0)
-    for iblkcyc in range(max_blk_cyc):
+    #TODO: store sys
+
+    dot_with_sys = True
+    guesstype = BASIC
+    for iblkcyc in range(dmrg_env.max_blk_cyc):
         print 'Block Iteration =', iblkcyc, ' forawd/backward'
-        sys = block_cycle(sys)
+        sys = block_cycle(dmrg_env, sys, dot_with_sys, guesstype, warmUp)
+        assert(0)
         if somecase:
             dot_with_sys = False
         save_sweepParams_options_flags()
     return energy
 
-def block_cycle(dot_with_sys):
-    set_geusstype = BASIC
-
-    print 'BlockAndDecimate'
-    if warmUp:
-        newsys = Startup()
+def block_cycle(dmrg_env, sys, dot_with_sys=True, guesstype=BASIC, warmUp=False):
+    if False and warmUp and some_symmetry:
+        newsys = Startup(sys)
     else:
-        newsys = BlockAndDecimate()
+        newsys = BlockAndDecimate(dmrg_env, sys, dot_with_sys, warmUp)
+
     print 'output_state_summay'
     print 'output_energy_summay'
     return newsys
 
 
-def Startup(system):
+def Startup(dmrg_env, system):
     dot_size = 1
     sysDot = spinblock.SpinBlock()
-    sysDot.init_by_dot_id(*system.system_dot_start_end(forward, dot_size))
+    sysDot.init_by_dot_size(dot_size)
     newsys = spinblock.InitNewSystemBlock(system, sysDot)
     rmat = rotationmat.RotationMatrix()
     rmat.refresh_by(_dmrg.Pyguess_rotmat(newsys._raw, keptstates, keptqstates))
     newsys.transform_operators(rmat)
     return newsys
 
-# system is restored somewhere,
-def BlockAndDecimate(system, useSlater, dot_with_sys, onedot):
-    dot_size = 1 # usually 1, refer to input.C m_sys_add
-    sysDot = spinblock.SpinBlock()
-    sysDot.init_by_dot_id(*system.system_dot_start_end(forward, dot_size))
-    envDot = spinblock.SpinBloc()
-    envDot.init_by_dot_id(*somesys_to_decide.system_dot_start_end(forward, dot_size))
+# system is restored somewhere
+# switch off onedot in the beginning
+# warmUp == useSlater
+def BlockAndDecimate(dmrg_env, system, dot_with_sys, warmUp=False, onedot=True):
+    forward = (system.sites[0] == 0)
+
+    if forward:
+        sys_start_id = system.sites[-1] + 1
+        env_start_id = sys_start_id + dmrg_env.sys_add
+    else:
+        sys_start_id = system.sites[0] - 1
+        env_start_id = sys_start_id - dmrg_env.sys_add
+    sysDot = spinblock.SpinBlock(dmrg_env)
+    sysDot.init_dot(forward, sys_start_id, dmrg_env.sys_add)
+    envDot = spinblock.SpinBlock(dmrg_env)
+    envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
 
     if onedot or dot_with_sys:
         system.addAdditionalCompOps()
-        newsys = InitNewSystemBlock(system, sysDot)
+        newsys = spinblock.InitNewSystemBlock(dmrg_env, system, sysDot, \
+                                              dot_with_sys)
     else:
-        newsys = SpinBlock()
+        newsys = SpinBlock(dmrg_env)
 
     if onedot:
-        envrion, newenv = spinblock.InitNewEnvironmentBlock(sysDot, system,
-                                                            sysDot, options)
+        environ, newenv = \
+                spinblock.InitNewEnvironmentBlock(dmrg_env, sysDot, system,
+                                                  sysDot, dot_with_sys, warmUp)
     else:
-        envrion, newenv = spinblock.InitNewEnvironmentBlock(envrionDot, system,
-                                                            sysDot, options)
+        environ, newenv = \
+                spinblock.InitNewEnvironmentBlock(dmrg_env, envrionDot, system,
+                                                  sysDot, dot_with_sys, warmUp)
 
     #if loopblock: loopBlock,otherBlock = leftBlock,rightBlock
     #else: loopBlock,otherBlock = rightBlock,leftBlock
     if dot_with_sys:
-            system.set_loopblock(false)
-            newSystem.set_loopblock(true)
+            system.set_loopblock(False)
+            newsys.set_loopblock(True)
             if onedot:
-                environment.set_loopblock(false)
-            newEnvironment.set_loopblock(false)
+                environ.set_loopblock(False)
+            newenv.set_loopblock(False)
     elif onedot:
-        system.set_loopblock(false)
-        environment.set_loopblock(true)
-        newEnvironment.set_loopblock(true)
+        system.set_loopblock(False)
+        environ.set_loopblock(True)
+        newenv.set_loopblock(True)
     else:
-        system.set_loopblock(false)
-        newSystem.set_loopblock(false)
-        environment.set_loopblock(false)
-        newEnvironment.set_loopblock(true)
+        system.set_loopblock(False)
+        newsys.set_loopblock(False)
+        environ.set_loopblock(False)
+        newenv.set_loopblock(True)
 
     if onedot:
-        big = InitBigBlock(system, newenv)
+        big = spinblock.InitBigBlock(dmrg_env, system, newenv)
     else:
-        big = InitBigBlock(newsys, newenv)
+        big = spinblock.InitBigBlock(dmrg_env, newsys, newenv)
 
-    newsys, energy, rotmat = RenormaliseFrom(big, system, sysDot, envrion, envDot)
+    newsys, energy, rotmat = RenormaliseFrom(big, system, sysDot, environ, envDot)
     newsys.transform_operators(rotmat)
     return newsys
 
@@ -114,7 +133,7 @@ def RenormaliseFrom(big, newsys):
     rawfn, energy = _dmrg.Pysolve_wavefunction(big._raw)
     if onedot and not dot_with_sys:
         newsys = spinblock.InitNewSystemBlock(system, systemDot)
-        newbig = spinblock.InitBigBlock(newsys, envrion)
+        newbig = spinblock.InitBigBlock(newsys, environ)
         rawfn = _dmrg.Pyonedot_shufflesysdot(big.stateInfo._raw,
                                              newbig.stateInfo._raw, rawfn)
     else:

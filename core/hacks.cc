@@ -19,6 +19,7 @@ using namespace SpinAdapted;
 
 void initialize_default_dmrginp(char *fcidump, std::string& prefix, std::string& inpsym)
 {
+    dmrginp.initCumulTimer();
     v_1.rhf = true;
     v_2.rhf = true;
     //dmrginp.initialize_defaults();
@@ -42,5 +43,9 @@ void initialize_default_dmrginp(char *fcidump, std::string& prefix, std::string&
     Orbstring::init(dmrginp.slater_size());
 }
 
+int get_last_site_id()
+{
+    return dmrginp.last_site() - 1;
+}
 
 

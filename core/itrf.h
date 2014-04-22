@@ -22,10 +22,13 @@ int load_spinblock(char *filespinblock, SpinBlock *b);
 StateInfo *x_SpinBlock_stateInfo(SpinBlock *b);
 std::vector<int> *x_SpinBlock_complementary_sites(SpinBlock *b);
 //void build_SpinBlock_ops(SpinBlock *b);
-void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, StateInfo& si,
+void BuildSlaterBlock_with_stateinfo(SpinBlock& self, StateInfo& si,
                                      std::vector<int>& environmentSites,
                                      bool haveNormops);
-
+void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
+                                     SpinBlock *rblock, std::vector<int>& sites,
+                                     StateInfo *si);
+void set_SpinBlock_twoInt(SpinBlock *self);
 
 std::vector<int> *x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
                                         int rquanta_id);

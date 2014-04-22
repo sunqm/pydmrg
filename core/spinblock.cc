@@ -3,6 +3,7 @@
  */
 #include "config.h"
 #include "spinblock.h"
+#include "IntegralMatrix.h"
 
 using namespace SpinAdapted;
 
@@ -29,7 +30,7 @@ StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
 
 std::vector<int> *x_SpinBlock_complementary_sites(SpinBlock *b)
 {
-    return &(const_cast<std::vector<int>&>(b->get_complementary_sites()));
+    return &const_cast<std::vector<int>&>(b->get_complementary_sites());
 }
 
 /*
@@ -44,7 +45,7 @@ void build_SpinBlock_ops(SpinBlock *b) // TODO: add csf for for build_operators
     b->build_operators();
 }*/
 
-void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, StateInfo& si,
+void BuildSlaterBlock_with_stateinfo(SpinBlock& self, StateInfo& si,
                                      std::vector<int>& environmentSites,
                                      bool haveNormops)
 {
@@ -88,5 +89,30 @@ void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, StateInfo& si,
     }
     //pout << endl;
 
-    environ.BuildSlaterBlock(environmentSites, quantumNumbers, distribution, false, haveNormops);
+    /* be careful, lots of things initialized here
+     * sites, complementary_sites, stateInfo, twoInt ...  */
+    self.BuildSlaterBlock(environmentSites, quantumNumbers, distribution, false, haveNormops);
+}
+
+void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
+                                     SpinBlock *rblock, std::vector<int>& sites,
+                                     StateInfo *si)
+{
+    self->set_leftBlock(lblock);
+    self->set_rightBlock(rblock);
+    std::vector<int>& s = const_cast<std::vector<int>&>(self->get_sites());
+    s.assign(sites.begin(), sites.end());
+    StateInfo& psi = const_cast<StateInfo&>(self->get_stateInfo());
+    psi = *si;
+}
+
+/*
+ * twoInt is initialized in one of BuildSumBlock, BuildTensorProductBlock, ...
+ * call me before calling those functions or the functions contained in
+ * them, such as build_operators, build_iterators
+ */
+void set_SpinBlock_twoInt(SpinBlock *self)
+{
+    //TODO: if (dmrginp.use_partial_two_integrals())
+    self->x_twoInt() = boost::shared_ptr<TwoElectronArray>(&v_2,  boostutils::null_deleter());
 }

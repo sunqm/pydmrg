@@ -7,14 +7,17 @@ import os, sys
 import _dmrg
 
 class RotationMatrix(object):
-    def __init__(self, matfiles=[]):
-        self._matfiles = matfiles
+    def __init__(self, dmrg_env):
+        self._env = dmrg_env
 
-    def load(self, mat_id, nquanta):
-        if isinstance(mat_id, str):
-            matfile = mat_id
-        else:
-            matfile = self._matfiles[mat_id]
+    def load(self, start_id, end_id, state_id=0, prefix=None):
+        if prefix is None:
+            if self._env is None:
+                prefix = os.environ['TMPDIR'] + '/'
+            else:
+                prefix = self._env + '/'
+        matfile = '%sRotation-%d-%d.0.state%d.tmp' \
+                % (prefix, start_id, end_id, state_id)
         if not os.path.isfile(matfile):
             raise OSError('file %s does not exist' % matfile)
         self._raw = _dmrg.NewRawRotationMatrix()
@@ -45,6 +48,7 @@ def update_rotmat(wfn, sys, big):
 
 
 if __name__ == '__main__':
+    pass
     files = ['0-1.0.state0', '0-1.0.state1', '0-2.0.state0', '0-2.0.state1',
              '0-3.0.state0', '0-3.0.state1', '0-4.0.state0', '0-4.0.state1',
              '0-5.0.state0', '0-6.0.state0', '1-3.0.state0', '1-3.0.state1',
