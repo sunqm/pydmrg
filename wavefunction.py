@@ -9,8 +9,8 @@ import stateinfo
 import quanta
 
 class Wavefunction(object):
-    def __init__(self, wfnfiles):
-        self._wfnfiles = wfnfiles
+    def __init__(self, dmrg_env=None):
+        self._env = dmrg_env
         self.orbs = []
         self.sign = 0
         self.fermion = True
@@ -32,18 +32,32 @@ class Wavefunction(object):
 ## maybe call c++ operator<<
 #        pass
 
-    def load(self, wfn_id):
-        if isinstance(wfn_id, str):
-            wfnfile = wfn_id
-        else:
-            wfnfile = self._wfnfiles[wfn_id]
+    def load(self, start_id, end_id, root_id=0, prefix=None):
+        if prefix is None:
+            if self._env is None:
+                prefix = os.environ['TMPDIR'] + '/'
+            else:
+                prefix = self._env.scratch_prefix + '/'
+        wfnfile = '%swave-%d-%d.0.%d.tmp' \
+                % (prefix, start_id, end_id, root_id)
         if not os.path.isfile(wfnfile):
             raise OSError('file %s does not exist' % wfnfile)
-        self._raw = _dmrg.NewRawWavefunction(wfnfile)
+        self._raw = _dmrg.NewRawWavefunction()
+        self._raw.load(wfnfile)
         self.stateInfo = stateinfo.StateInfo()
         self.stateInfo.refresh_by(self._raw.stateInfo)
         self.deltaQuantum = quanta.SpinQuantum()
-        self.deltaQuantum.refresh_by(self._raw.deltaQuantum)
+        self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
+        self._sync_raw2self()
+
+    def save(self):
+        pass
+
+    def refresh_by(self, rawfn):
+        assert(isinstance(rawfn, _dmrg.RawWavefunction))
+        self._raw = rawfn
+        self.deltaQuantum = quanta.SpinQuantum()
+        self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
         self._sync_raw2self()
 
     def _sync_raw2self(self):
@@ -60,6 +74,7 @@ class Wavefunction(object):
 
 
 if __name__ == '__main__':
+    pass
     files = ['0-1.0.0', '0-1.0.1', '0-2.0.0', '0-2.0.1', '0-3.0.0', '0-3.0.1',
              '0-4.0.0', '0-4.0.1', '0-5.0.0', '0-6.0.0', '1-3.0.0', '1-3.0.1',
              '1-5.0.0', '1-5.0.1', '1-7.0.0', '2-3.0.0', '2-3.0.1', '2-5.0.0',
