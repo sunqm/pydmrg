@@ -230,6 +230,16 @@ cdef class RawStateInfo:
         def __get__(self): return self._this.leftUnMapQuanta
     property rightUnMapQuanta:
         def __get__(self): return self._this.rightUnMapQuanta
+    property leftStateInfo:
+        def __get__(self):
+            s = RawStateInfo()
+            s._this = self._this.leftStateInfo
+            return s
+    property rightStateInfo:
+        def __get__(self):
+            s = RawStateInfo()
+            s._this = self._this.rightStateInfo
+            return s
 cdef class NewRawStateInfo(RawStateInfo):
     def __cinit__(self):
         self._this = new StateInfo()

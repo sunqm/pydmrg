@@ -12,6 +12,7 @@ class StateInfo(object):
         self._env = dmrg_env
         self.totalStates = 0
         self.quantaStates = []
+        self.quanta_size = 0
         self.allowedQuanta = numpy.ones((0,0),dtype=bool)
         self.unBlockedIndex = []
         self.leftUnMapQuanta = []
@@ -26,6 +27,15 @@ class StateInfo(object):
         assert(isinstance(rawstateinfo, _dmrg.RawStateInfo))
         self._raw = rawstateinfo
         self._sync_raw2self()
+        #FIXME: maybe have bug
+        self.allowedQuanta = self._raw.get_whole_allowedQuanta()
+        #self.leftStateInfo = StateInfo()
+        #self.leftStateInfo._raw = self._raw.leftStateInfo
+        #self.rightStateInfo = StateInfo()
+        #self.rightStateInfo._raw = self._raw.leftStateInfo
+        #self.leftUnMapQuanta = self._raw.leftUnMapQuanta
+        #self.rightUnMapQuanta = self._raw.leftUnMapQuanta
+
         #how to initialize:
         # self.unCollectedStateInfo self.leftStateInfo self.rightStateInfo
 
@@ -38,25 +48,31 @@ class StateInfo(object):
     def _sync_raw2self(self):
         self.totalStates = sum(self._raw.quantaStates)
         self.quantaStates = self._raw.quantaStates
+        self.quanta_size = len(self.quantaStates)
         self.unBlockedIndex = [sum(self.quantaStates[:i]) \
                                for i,_ in enumerate(self.quantaStates)]
         if self.leftStateInfo is not None \
            and self.rightStateInfo is not None:
             self.allowedQuanta = self._raw.get_whole_allowedQuanta()
-        #self.leftUnMapQuanta = self._raw.leftUnMapQuanta
-        #self.rightUnMapQuanta = self._raw.leftUnMapQuanta
 
     def get_quanta(self, quanta_id):
+        assert(quanta_id < self.quanta_size)
         spinquanta = quanta.SpinQuantum()
         spinquanta.refresh_by(self._raw.get_quanta(quanta_id))
         return spinquanta
 
     def get_quantaMap(self, lquanta_id, rquanta_id):
         '''return a list'''
+        # TODO: test me
+        #assert(lquanta_id < self.leftStateInfo.quanta_size)
+        #assert(rquanta_id < self.rightStateInfo.quanta_size)
         return self._raw.get_quantaMap(lquanta_id, rquanta_id)
 
     def get_allowedQuanta(self, lquanta_id, rquanta_id):
         '''return True/False'''
+        # TODO: test me
+        #assert(lquanta_id < self.leftStateInfo.quanta_size)
+        #assert(rquanta_id < self.rightStateInfo.quanta_size)
         return self._raw.get_allowedQuanta(lquanta_id, rquanta_id)
 
 def CollectQuanta(old_stateinfo):
@@ -66,13 +82,13 @@ def CollectQuanta(old_stateinfo):
     _dmrg.Pyunion_StateInfo_quanta(newsi._raw, old_stateinfo._raw)
     newsi.unCollectedStateInfo = old_stateinfo
     newsi._raw.set_unCollectedStateInfo(old_stateinfo._raw)
-    newsi._sync_raw2self()
 
+    # NOTE avoid the following four being overwritten by _sync_raw2self
     newsi.leftStateInfo = old_stateinfo.leftStateInfo
     newsi.rightStateInfo = old_stateinfo.rightStateInfo
-    # NOTE avoid the following two being overwritten by _sync_raw2self
     newsi.leftUnMapQuanta = old_stateinfo.leftUnMapQuanta
     newsi.rightUnMapQuanta = old_stateinfo.rightUnMapQuanta
+    newsi._sync_raw2self()
     return newsi
 
 

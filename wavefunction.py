@@ -74,15 +74,8 @@ class Wavefunction(object):
 
 
 if __name__ == '__main__':
-    pass
-    files = ['0-1.0.0', '0-1.0.1', '0-2.0.0', '0-2.0.1', '0-3.0.0', '0-3.0.1',
-             '0-4.0.0', '0-4.0.1', '0-5.0.0', '0-6.0.0', '1-3.0.0', '1-3.0.1',
-             '1-5.0.0', '1-5.0.1', '1-7.0.0', '2-3.0.0', '2-3.0.1', '2-5.0.0',
-             '2-5.0.1', '2-7.0.0', '3-5.0.0', '3-5.0.1', '3-7.0.0', '4-5.0.0',
-             '4-5.0.1', '4-7.0.0', '5-7.0.0', '6-7.0.0',]
-    files = ['/dev/shm/wave-%s.tmp'%i for i in files]
-    wfn = Wavefunction(files)
-    wfn.load(5)
+    wfn = Wavefunction()
+    wfn.load(2, 5, prefix='/dev/shm/')
     print wfn
     print wfn.deltaQuantum.particleNumber, wfn.deltaQuantum.totalSpin
     print wfn.stateInfo.totalStates

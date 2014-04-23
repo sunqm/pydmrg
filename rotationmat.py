@@ -5,12 +5,20 @@
 
 import os, sys
 import _dmrg
+import wavefunction
 
 class RotationMatrix(object):
-    def __init__(self, dmrg_env=None):
+    def __init__(self, dmrg_env=None, nquanta=None):
         self._env = dmrg_env
+        self.size = nquanta
 
     def load(self, start_id, end_id, state_id=0, prefix=None):
+        if self.size is None:
+            wfn = wavefunction.Wavefunction()
+            wfn.load(start_id, end_id, state_id, prefix)
+            self.size = wfn.stateInfo.quanta_size
+            print 'init self.size', self.size
+
         if prefix is None:
             if self._env is None:
                 prefix = os.environ['TMPDIR'] + '/'
@@ -42,23 +50,14 @@ class RotationMatrix(object):
 
 
 def update_rotmat(wfn, sys, big):
-    rmat = RotationMatrix([])
+    rmat = RotationMatrix()
     rmat.refresh_by(_dmrg.Pyupdate_rotmat(wfn._raw, sys._raw, big._raw))
     return rmat
 
 
 if __name__ == '__main__':
-    pass
-    files = ['0-1.0.state0', '0-1.0.state1', '0-2.0.state0', '0-2.0.state1',
-             '0-3.0.state0', '0-3.0.state1', '0-4.0.state0', '0-4.0.state1',
-             '0-5.0.state0', '0-6.0.state0', '1-3.0.state0', '1-3.0.state1',
-             '1-5.0.state0', '1-5.0.state1', '1-7.0.state0', '2-3.0.state0',
-             '2-3.0.state1', '2-5.0.state0', '2-5.0.state1', '2-7.0.state0',
-             '3-5.0.state0', '3-5.0.state1', '3-7.0.state0', '4-5.0.state0',
-             '4-5.0.state1', '4-7.0.state0', '5-7.0.state0', '6-7.0.state0',]
-    files = ['/dev/shm/Rotation-%s.tmp'%i for i in files]
-    rotmats = RotationMatrix(files)
-    rotmats.load(5, 8)
+    rotmats = RotationMatrix()
+    rotmats.load(0, 5, prefix='/dev/shm/')
     for i in range(8):
         mat = rotmats.get_matrix_by_quanta_id(i)
         print mat.shape

@@ -81,6 +81,7 @@ class SpinBlock(object):
 
         self._raw.set_twoInt()
 
+        print 'sfffffffffffffffffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkkkk'
         self._raw.build_ops()
         return self
 
@@ -258,18 +259,7 @@ def InitBigBlock(dmrg_env, newsys, newenv):
 
 
 if __name__ == '__main__':
-    pass
-    files = [ 'backward-1-3.0', 'backward-1-5.0', 'backward-1-7.0',
-             'backward-2-3.0', 'backward-2-5.0', 'backward-2-7.0',
-             'backward-3-3.0', 'backward-3-5.0', 'backward-3-7.0',
-             'backward-4-5.0', 'backward-4-7.0', 'backward-5-5.0',
-             'backward-5-7.0', 'backward-6-7.0', 'backward-7-7.0',
-             'forward-0-0.0', 'forward-0-1.0', 'forward-0-2.0',
-             'forward-0-3.0', 'forward-0-4.0', 'forward-0-5.0',
-             'forward-0-6.0', 'forward-3-3.0', 'forward-5-5.0',
-             'forward-7-7.0',]
-    files = ['/dev/shm/SpinBlock-%s.tmp'%i for i in files]
-    block = SpinBlock(files)
-    block.load(5)
+    block = SpinBlock()
+    block.load(0, 4, True, prefix='/dev/shm/')
     print block.sites
     block.printOperatorSummary()

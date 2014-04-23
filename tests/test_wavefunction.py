@@ -4,17 +4,10 @@ import unittest
 import numpy
 import pydmrg
 
-files = ['0-1.0.0', '0-1.0.1', '0-2.0.0', '0-2.0.1', '0-3.0.0', '0-3.0.1',
-         '0-4.0.0', '0-4.0.1', '0-5.0.0', '0-6.0.0', '1-3.0.0', '1-3.0.1',
-         '1-5.0.0', '1-5.0.1', '1-7.0.0', '2-3.0.0', '2-3.0.1', '2-5.0.0',
-         '2-5.0.1', '2-7.0.0', '3-5.0.0', '3-5.0.1', '3-7.0.0', '4-5.0.0',
-         '4-5.0.1', '4-7.0.0', '5-7.0.0', '6-7.0.0',]
-files = ['/dev/shm/wave-%s.tmp'%i for i in files]
-
 class KnowValues(unittest.TestCase):
     def test_load(self):
-        wfn = pydmrg.Wavefunction(files)
-        wfn.load(5)
+        wfn = pydmrg.Wavefunction()
+        wfn.load(0, 3, 1, prefix='/dev/shm/')
         self.assertEqual(wfn.deltaQuantum.particleNumber, 6)
         self.assertEqual(wfn.deltaQuantum.totalSpin, 0)
         self.assertEqual(wfn.stateInfo.totalStates, 55)
