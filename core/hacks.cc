@@ -17,6 +17,23 @@ extern Input dmrginp;
 
 using namespace SpinAdapted;
 
+
+void init_dmrginp(char *conf)
+{
+    v_1.rhf = true;
+    v_2.rhf = true;
+    std::string configFile(conf);
+    dmrginp = Input(configFile);
+    //dmrginp.initialize_defaults();
+    dmrginp.initCumulTimer();
+    Orbstring::init(dmrginp.slater_size());
+}
+
+int get_last_site_id()
+{
+    return dmrginp.last_site() - 1;
+}
+
 void initialize_default_dmrginp(char *fcidump, std::string& prefix, std::string& inpsym)
 {
     dmrginp.initCumulTimer();
@@ -42,10 +59,3 @@ void initialize_default_dmrginp(char *fcidump, std::string& prefix, std::string&
     // class Slater and OrbString store its size in global scope in OrbString.C
     Orbstring::init(dmrginp.slater_size());
 }
-
-int get_last_site_id()
-{
-    return dmrginp.last_site() - 1;
-}
-
-

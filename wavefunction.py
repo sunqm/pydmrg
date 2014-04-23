@@ -9,7 +9,7 @@ import stateinfo
 import quanta
 
 class Wavefunction(object):
-    def __init__(self, dmrg_env):
+    def __init__(self, dmrg_env=None):
         self._env = dmrg_env
         self.orbs = []
         self.sign = 0
@@ -37,7 +37,7 @@ class Wavefunction(object):
             if self._env is None:
                 prefix = os.environ['TMPDIR'] + '/'
             else:
-                prefix = self._env + '/'
+                prefix = self._env.scratch_prefix + '/'
         wfnfile = '%swave-%d-%d.0.%d.tmp' \
                 % (prefix, start_id, end_id, root_id)
         if not os.path.isfile(wfnfile):
@@ -54,9 +54,8 @@ class Wavefunction(object):
         pass
 
     def refresh_by(self, rawfn):
+        assert(isinstance(rawfn, _dmrg.RawWavefunction))
         self._raw = rawfn
-        self.stateInfo = stateinfo.StateInfo()
-        self.stateInfo.refresh_by(self._raw.stateInfo)
         self.deltaQuantum = quanta.SpinQuantum()
         self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
         self._sync_raw2self()

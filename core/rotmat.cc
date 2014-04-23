@@ -51,8 +51,6 @@ int update_rotmat(std::vector<Matrix> *rotateMatrix,
         tracedMatrix.add_onedot_noise(wfns, *big, noise);
     } */
 
-    keptstates = 0;
-    keptqstates = 0;
     double error = sys->makeRotateMatrix(tracedMatrix, *rotateMatrix,
                                          keptstates, keptqstates);
     return 0;

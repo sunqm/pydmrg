@@ -94,17 +94,17 @@ void BuildSlaterBlock_with_stateinfo(SpinBlock& self, StateInfo& si,
     self.BuildSlaterBlock(environmentSites, quantumNumbers, distribution, false, haveNormops);
 }
 
-void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
-                                     SpinBlock *rblock, std::vector<int>& sites,
-                                     StateInfo *si)
-{
-    self->set_leftBlock(lblock);
-    self->set_rightBlock(rblock);
-    std::vector<int>& s = const_cast<std::vector<int>&>(self->get_sites());
-    s.assign(sites.begin(), sites.end());
-    StateInfo& psi = const_cast<StateInfo&>(self->get_stateInfo());
-    psi = *si;
-}
+//void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
+//                                     SpinBlock *rblock, std::vector<int>& sites,
+//                                     StateInfo *si)
+//{
+//    self->set_leftBlock(lblock);
+//    self->set_rightBlock(rblock);
+//    std::vector<int>& s = const_cast<std::vector<int>&>(self->get_sites());
+//    s.assign(sites.begin(), sites.end());
+//    StateInfo& psi = const_cast<StateInfo&>(self->get_stateInfo());
+//    psi = *si;
+//}
 
 /*
  * twoInt is initialized in one of BuildSumBlock, BuildTensorProductBlock, ...
@@ -114,5 +114,5 @@ void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
 void set_SpinBlock_twoInt(SpinBlock *self)
 {
     //TODO: if (dmrginp.use_partial_two_integrals())
-    self->x_twoInt() = boost::shared_ptr<TwoElectronArray>(&v_2,  boostutils::null_deleter());
+    self->twoInt = boost::shared_ptr<TwoElectronArray>(&v_2,  boostutils::null_deleter());
 }

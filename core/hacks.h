@@ -7,8 +7,9 @@
 #include <stdio.h>
 #include <boost/shared_ptr.hpp>
 
-void initialize_default_dmrginp(char *fcidump, std::string& prefix, std::string& sym);
+void init_dmrginp(char *conf);
 int get_last_site_id();
+void initialize_default_dmrginp(char *fcidump, std::string& prefix, std::string& sym);
 
 /*
  * Since cython does not support dereference,  operator*(), *px of shared_ptr

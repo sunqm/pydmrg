@@ -93,6 +93,11 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
         SpinBlock()
         SpinBlock(int start, int finish, bool is_complement)
         SpinBlock(StateInfo& s)
+        SpinBlock* leftBlock
+        SpinBlock* rightBlock
+        StateInfo stateInfo
+        vector[int] sites
+        vector[int] complementary_sites
         vector[int]& get_sites()
         # complementary_sites = [all i not in sites], only op_component.C uses
         # it to search the sites which are connected to complementary by ops
@@ -143,7 +148,8 @@ cdef extern from 'itrf.h':
     int guess_rotmat(vector[Matrix] *rotateMatrix, SpinBlock *newSystem,
                      int keptstates, int keptqstates)
 
-    void initialize_default_dmrginp(char *fcidump, string prefix, string sym)
+    #void initialize_default_dmrginp(char *fcidump, string prefix, string sym)
+    void init_dmrginp(char *conf)
     int get_last_site_id()
     void assign_deref_shared_ptr[T](T& dest, T& src)
 
@@ -152,13 +158,13 @@ cdef extern from 'itrf.h':
     int x_SpinQuantum_irrep(SpinQuantum *sq)
 
     int load_spinblock(char *filespinblock, SpinBlock *b)
-    StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
-    vector[int] *x_SpinBlock_complementary_sites(SpinBlock *b)
+    #StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
+    #vector[int] *x_SpinBlock_complementary_sites(SpinBlock *b)
     void BuildSlaterBlock_with_stateinfo(SpinBlock& environ, StateInfo& si,
                                          vector[int]& envSites, bool haveNormops)
-    void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
-                                         SpinBlock *rblock, vector[int]& sites,
-                                         StateInfo *si)
+    #void set_SpinBlock_for_BuildSumBlock(SpinBlock *self, SpinBlock *lblock,
+    #                                     SpinBlock *rblock, vector[int]& sites,
+    #                                     StateInfo *si)
     void set_SpinBlock_twoInt(SpinBlock *self)
 
     vector[int] *x_StateInfo_quantaMap(StateInfo *s, int lquanta_id,
@@ -247,9 +253,12 @@ cdef class RawSpinBlock:
     cdef SpinBlock *_this
     def get_stateInfo(self):
         si = RawStateInfo()
-        si._this = x_SpinBlock_stateInfo(self._this)
+        #si._this = x_SpinBlock_stateInfo(self._this)
+        si._this = &self._this.stateInfo
         return si
-    def get_sites(self): return self._this.get_sites()
+    #def get_sites(self): return self._this.get_sites()
+    property sites:
+        def __get__(self): return self._this.sites
     def printOperatorSummary(self):
         self._this.printOperatorSummary()
 cdef class NewRawSpinBlock(RawSpinBlock):
@@ -277,10 +286,14 @@ cdef class NewRawSpinBlock(RawSpinBlock):
                                          haveNormops, haveCompops)
         cdef Storagetype t = storagetype
         self._this.setstoragetype(t)
-    def set_complementary_sites(self, c_sites):
-        cdef vector[int] *csites = x_SpinBlock_complementary_sites(self._this)
-        for i in c_sites:
-            csites[0].push_back(i)
+    def set_complementary_sites(self, vector[int] c_sites):
+        #cdef vector[int] *csites = x_SpinBlock_complementary_sites(self._this)
+        #for i in c_sites:
+        #    csites[0].push_back(i)
+        #self._this.complementary_sites.clear()
+        #for i in c_sites:
+        #    self._this.complementary_sites.push_back(i)
+        self._this.complementary_sites = c_sites
     def set_twoInt(self):
         set_SpinBlock_twoInt(self._this)
     def build_ops(self): # TODO add csf for overloaded build_operators
@@ -294,8 +307,12 @@ cdef class NewRawSpinBlock(RawSpinBlock):
         self._this.transform_operators(rotatemat._this[0])
     def sync(self, RawSpinBlock lblock, RawSpinBlock rblock,
              vector[int] sites, RawStateInfo si):
-        set_SpinBlock_for_BuildSumBlock(self._this, lblock._this, rblock._this,
-                                        sites, si._this)
+        #set_SpinBlock_for_BuildSumBlock(self._this, lblock._this, rblock._this,
+        #                                sites, si._this)
+        self._this.leftBlock = lblock._this
+        self._this.rightBlock = rblock._this
+        self._this.sites = sites
+        self._this.stateInfo = si._this[0]
     def set_loopblock(self, tf):
         self._this.set_loopblock(tf)
 
@@ -313,9 +330,11 @@ cdef class RawWavefunction:
     #cdef readonly NewRawStateInfo stateInfo
     cdef public NewRawStateInfo stateInfo
     def get_deltaQuantum(self):
-        cdef SpinQuantum *p = &(self._this.set_deltaQuantum())
+        #cdef SpinQuantum *p = &(self._this.set_deltaQuantum())
+        #deltaQuantum = RawSpinQuantum()
+        #deltaQuantum._this = p
         deltaQuantum = RawSpinQuantum()
-        deltaQuantum._this = p
+        deltaQuantum._this = &(self._this.set_deltaQuantum())
         return deltaQuantum
     def get_onedot(self): return self._this.get_onedot()
     def get_orbs(self): return self._this.get_orbs()
@@ -367,8 +386,10 @@ cdef class NewRawRotationMatrix(RawRotationMatrix):
 #
 #################################################
 
-def Pyinitialize_defaults(fcidump, prefix, sym):
-    initialize_default_dmrginp(fcidump, prefix, sym)
+#def Pyinitialize_defaults(fcidump, prefix, sym):
+#    initialize_default_dmrginp(fcidump, prefix, sym)
+def Pyinitialize_defaults(inp_conf):
+    init_dmrginp(inp_conf)
 
 def PyTensorProduct(RawStateInfo a, RawStateInfo b, int constraint):
     c = NewRawStateInfo()
@@ -378,12 +399,14 @@ def PyTensorProduct(RawStateInfo a, RawStateInfo b, int constraint):
     TensorProduct(a._this[0], b._this[0], c._this[0], constraint, NULL)
     return c
 
-def Pyupdate_rotmat(RawWavefunction wfn, RawSpinBlock sys, RawSpinBlock big):
+def Pyupdate_rotmat(RawWavefunction wfn, RawSpinBlock sys, RawSpinBlock big,
+                    keep_states, keep_qstates, noise):
     # rmat is resized in update_rotmat => makeRotateMatrix => assign_matrix_by_dm
     rmat = NewRawRotationMatrix()
 
     # TODO: add noise
-    update_rotmat(rmat._this, wfn._this, sys._this, big._this, 0, 0, 0)
+    update_rotmat(rmat._this, wfn._this, sys._this, big._this,
+                  keep_states, keep_qstates, noise)
     return rmat
 
 def Pyunion_StateInfo_quanta(RawStateInfo dest, RawStateInfo source):
@@ -395,16 +418,14 @@ def PyBuildSlaterBlock_with_stateinfo(RawSpinBlock environ, RawStateInfo si,
     BuildSlaterBlock_with_stateinfo(environ._this[0], si._this[0], envSites,
                                     haveNormops)
 
-def Pysolve_wavefunction(RawSpinBlock big, more_opts=[]):
+def Pysolve_wavefunction(RawSpinBlock big, nroots, dot_with_sys, warmUp,
+                         onedot, tol, guesstype, additional_noise):
     cdef vector[Wavefunction] solution
+    solution.resize(nroots)
     cdef vector[double] energies
-    tol = 1e-8
-    cdef guessWaveTypes guesstype = BASIC
-    onedot = 1
-    dot_with_sys = 1
-    warmUp = 1
-    additional_noise = 1e-6
-    solve_wavefunction(solution, energies, big._this[0], tol, guesstype,
+    energies.resize(nroots)
+    cdef guessWaveTypes t = guesstype
+    solve_wavefunction(solution, energies, big._this[0], tol, t,
                        onedot, dot_with_sys, warmUp, additional_noise)
     wfn = NewRawWavefunction()
     wfn._this[0] = solution[0]

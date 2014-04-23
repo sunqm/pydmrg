@@ -7,7 +7,7 @@ import os, sys
 import _dmrg
 
 class RotationMatrix(object):
-    def __init__(self, dmrg_env):
+    def __init__(self, dmrg_env=None):
         self._env = dmrg_env
 
     def load(self, start_id, end_id, state_id=0, prefix=None):
@@ -15,7 +15,7 @@ class RotationMatrix(object):
             if self._env is None:
                 prefix = os.environ['TMPDIR'] + '/'
             else:
-                prefix = self._env + '/'
+                prefix = self._env.scratch_prefix + '/'
         matfile = '%sRotation-%d-%d.0.state%d.tmp' \
                 % (prefix, start_id, end_id, state_id)
         if not os.path.isfile(matfile):

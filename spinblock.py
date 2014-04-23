@@ -28,7 +28,7 @@ class SpinBlock(object):
             if self._env is None:
                 prefix = os.environ['TMPDIR'] + '/'
             else:
-                prefix = self._env + '/'
+                prefix = self._env.scratch_prefix + '/'
         if forward:
             blockfile = '%sSpinBlock-forward-%d-%d.0.tmp' \
                     % (prefix, start_id, end_id)
@@ -40,7 +40,7 @@ class SpinBlock(object):
             raise OSError('file %s does not exist' % blockfile)
         self._raw.load(blockfile)
         self.stateInfo.refresh_by(self._raw.get_stateInfo())
-        self.sites = self._raw.get_sites()
+        self.sites = self._raw.sites
 
     def save(self):
         #self._raw.sync(self.leftBlock._raw, self.rightBlock._raw,
@@ -61,14 +61,14 @@ class SpinBlock(object):
     def init_by_stateinfo(self, si):
         self._raw.init_by_stateinfo(si._raw)
         self.stateInfo = si
-        self.sites = self._raw.get_sites()
+        self.sites = self._raw.sites
 
     def BuildSumBlock(self, constraint, lBlock, rBlock):
         self.leftBlock = lBlock
         self.rightBlock = rBlock
         #maybe initialize self.twoInt here
         self.sites = self.leftBlock.sites
-        c_sites = self.get_complementry_sites()
+        c_sites = self.get_complementary_sites()
         self._raw.set_complementary_sites(c_sites)
         self.stateInfo = stateinfo.TensorProduct(self.leftBlock.stateInfo,
                                                  self.rightBlock.stateInfo,
@@ -86,7 +86,7 @@ class SpinBlock(object):
 
     def BuildTensorProductBlock(self, sites):
         self._raw.BuildTensorProductBlock(sites)
-        self.sites = self._raw.get_sites()
+        self.sites = self._raw.sites
         return self
 
     def transform_operators(self, rotmat):
@@ -104,7 +104,7 @@ class SpinBlock(object):
     def printOperatorSummary(self):
         self._raw.printOperatorSummary()
 
-    def get_complementry_sites(self):
+    def get_complementary_sites(self):
         return [i for i in range(self._env.tot_sites) if i not in self.sites]
 
     def addAdditionalCompOps(self):
@@ -115,7 +115,7 @@ class SpinBlock(object):
         _dmrg.PyBuildSlaterBlock_with_stateinfo(self._raw, si._raw, env_sites,
                                                 haveNormops)
         self.stateInfo.refresh_by(self._raw.get_stateInfo())
-        self.sites = self._raw.get_sites()
+        self.sites = self._raw.sites
         return self
 
     def set_loopblock(self, tf):
@@ -225,16 +225,15 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
         else:
             newenviron.load(env_sites[0], env_sites[-1], not forward)
     else:
+        haveNormops = not dot_with_sys # see initblocks.C
         if warmUp:
             if 0 and len(env_sites) == nexact: #nexact?
-                envrion.default_op_components_compl(not forward)
-                envrion.BuildTensorProductBlock(env_sites)
+                environ.default_op_components_compl(not forward)
+                environ.BuildTensorProductBlock(env_sites)
             else:
-                assert(0)
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
                                              NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
-                assert(0)
                 si = stateinfo.CollectQuanta(si)
                 if not onedot:
                     si = stateinfo.TensorProduct(si, environDot.stateInfo,
@@ -242,10 +241,11 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
                     si = stateinfo.CollectQuanta(si)
                 environ.BuildSlaterBlock(si, env_sites, haveNormops)
         else:
-            envrion.load(env_sites[0], env_sites[-1], not forward)
-        envrion.addAdditionalCompOps()
+            environ.load(env_sites[0], env_sites[-1], not forward)
+        environ.addAdditionalCompOps()
         # initialize newenv as that did in sys-block
-        newenviron = InitNewSystemBlock(envrion, environDot)
+        newenviron = InitNewSystemBlock(dmrg_env, environ, environDot,
+                                        haveNormops)
     return environ, newenviron
 
 def InitBigBlock(dmrg_env, newsys, newenv):
