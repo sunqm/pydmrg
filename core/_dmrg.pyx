@@ -64,7 +64,6 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
     # StateInfo class holds
     # some flags hasAllocatedMemory hasCollectedQuanta hasPreviousStateInfo
     # oldToNewState (maybe no use now)
-    # newQuantaMap (maybe no use now)
     cdef cppclass StateInfo:
         bool initialised
         StateInfo()
@@ -74,6 +73,7 @@ cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
         int totalStates
         vector[int] quantaStates
         vector[SpinQuantum] quanta
+        vector[int] newQuantaMap
         # allowedQuanta => get_StateInfo_allowedQuanta
         # quantaMap => get_StateInfo_quantaMap
         vector[int] leftUnMapQuanta
@@ -106,6 +106,7 @@ cdef extern from 'spinblock.h' namespace 'SpinAdapted':
         void default_op_components(bool direct, SpinBlock& lBlock,
                                    SpinBlock& rBlock, bool haveNormops,
                                    bool haveCompops)
+        void default_op_components(bool complementary)
         void build_iterators()
         #void build_operators(std::vector<Csf>& s, std::vector<<std::vector<Csf> >& ladders)
         void build_operators()
@@ -207,6 +208,8 @@ cdef class RawStateInfo:
     property quantaStates:
         def __get__(self): return self._this.quantaStates
         #def __set__(self, x): self._this.quantaStates = x
+    property newQuantaMap:
+        def __get__(self): return self._this.newQuantaMap
     def get_quanta(self, i):
         cdef SpinQuantum *p = &self._this.quanta[i]
         rawq = RawSpinQuantum()
@@ -296,6 +299,8 @@ cdef class NewRawSpinBlock(RawSpinBlock):
                                          haveNormops, haveCompops)
         cdef Storagetype t = storagetype
         self._this.setstoragetype(t)
+    def default_op_components_compl(self, complementary):
+        self._this.default_op_components(complementary)
     def set_complementary_sites(self, vector[int] c_sites):
         #cdef vector[int] *csites = x_SpinBlock_complementary_sites(self._this)
         #for i in c_sites:
@@ -338,7 +343,7 @@ cdef class RawSparseMatrix:
 cdef class RawWavefunction:
     cdef Wavefunction *_this
     #cdef readonly NewRawStateInfo stateInfo
-    cdef public NewRawStateInfo stateInfo
+    #cdef public NewRawStateInfo stateInfo
     def get_deltaQuantum(self):
         #cdef SpinQuantum *p = &(self._this.set_deltaQuantum())
         #deltaQuantum = RawSpinQuantum()
@@ -358,8 +363,10 @@ cdef class NewRawWavefunction(RawWavefunction):
     def __dealloc__(self):
         del self._this
     def load(self, wfnfile):
-        self.stateInfo = NewRawStateInfo()
-        load_wavefunction(wfnfile, self._this, self.stateInfo._this)
+        #self.stateInfo = NewRawStateInfo()
+        stateInfo = NewRawStateInfo()
+        load_wavefunction(wfnfile, self._this, stateInfo._this)
+        return stateInfo
 
 
 cdef class RawMatrix:

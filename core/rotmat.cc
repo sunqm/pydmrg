@@ -37,13 +37,19 @@ int update_rotmat(std::vector<Matrix> *rotateMatrix,
 {
     DensityMatrix tracedMatrix;
     tracedMatrix.allocate(sys->get_stateInfo());
+    std::vector<Wavefunction> wfns;
+    wfns.push_back(*wfn);
+    std::vector<double> wave_weights(1,1.l);
+    double additional_noise = 0;
+    bool warmup = 0;
+    tracedMatrix.makedensitymatrix(wfns, *big, wave_weights, noise,
+                                   additional_noise, warmup);
 
+    /* tracedMatrix.add_onedot_noise is private function
     operatorfunctions::MultiplyProduct(*wfn, Transpose(*wfn),
                                        tracedMatrix, 1);
 
-/* TODO: add noise
- * here we cannot call tracedMatrix.makedensitymatrix and add_onedot_noise,
- * because they need dmrginp which is not initialized in pydmrg
+    // note tracedMatrix.makedensitymatrix and add_onedot_noise, dmrginp
     if (noise > 1.0e-14) {
         // In this call, add_onedot_noise only modify tracedMatrix
         std::vector<Wavefunction> wfns;

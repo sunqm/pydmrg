@@ -49,9 +49,10 @@ class RotationMatrix(object):
         return self._raw.get_matrix_by_quanta_id(quanta_id)
 
 
-def update_rotmat(wfn, sys, big):
-    rmat = RotationMatrix()
-    rmat.refresh_by(_dmrg.Pyupdate_rotmat(wfn._raw, sys._raw, big._raw))
+def update_rotmat(dmrg_env, wfn, sys, big, keep_states, keep_qstates, noise):
+    rmat = RotationMatrix(dmrg_env)
+    rmat.refresh_by(_dmrg.Pyupdate_rotmat(wfn._raw, sys._raw, big._raw,
+                                          keep_states, keep_qstates, noise))
     return rmat
 
 

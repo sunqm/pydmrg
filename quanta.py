@@ -28,4 +28,3 @@ class SpinQuantum(object):
         self.particleNumber = nparticle
         self.totalSpin = spin
         self.irrep = irrep_id
-

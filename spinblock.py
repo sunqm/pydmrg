@@ -47,6 +47,10 @@ class SpinBlock(object):
         #               self.sites, self.stateInfo)
         print 'TODO: store me'
 
+    def _sync_self2raw(self):
+        #TODO: sync to raw everytime before calling Pydmrg_some_function
+        pass
+
     def init_dot(self, forward, start_id, dot_size=1, is_complement=False):
         # see e.g. sweep.C, BlockAndDecimate
         if forward:
@@ -66,8 +70,10 @@ class SpinBlock(object):
     def BuildSumBlock(self, constraint, lBlock, rBlock):
         self.leftBlock = lBlock
         self.rightBlock = rBlock
-        #maybe initialize self.twoInt here
-        self.sites = self.leftBlock.sites
+        #maybe initialize self._raw._this.twoInt here
+        print 'BuildSumBlock    ', self.leftBlock.stateInfo.totalStates, \
+                self.rightBlock.stateInfo.totalStates
+        self.sites = sorted(self.leftBlock.sites + self.rightBlock.sites)
         c_sites = self.get_complementary_sites()
         self._raw.set_complementary_sites(c_sites)
         self.stateInfo = stateinfo.TensorProduct(self.leftBlock.stateInfo,
@@ -81,21 +87,30 @@ class SpinBlock(object):
 
         self._raw.set_twoInt()
 
-        print 'sfffffffffffffffffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkkkk'
         self._raw.build_ops()
         return self
 
     def BuildTensorProductBlock(self, sites):
         self._raw.BuildTensorProductBlock(sites)
         self.sites = self._raw.sites
+        self.stateInfo.refresh_by(self._raw.get_stateInfo())
         return self
 
     def transform_operators(self, rotmat):
+        #old_si = self.stateInfo
         self._raw.transform_operators(rotmat._raw)
+        self.stateInfo.refresh_by(self._raw.get_stateInfo())
+        print 'after transform_operators', self.stateInfo.totalStates
+        #self.stateInfo.previousStateInfo = old_si seems no use now in Block
+
+        #for i in self.stateInfo.quanta.size():
+        #    assert(self.stateInfo.quanta[i] == old_si.quanta[newQuantaMap[i]])
+
+        self.leftBlock = None
+        self.rightBlock = None
 
     def default_op_components_compl(self, complementary=False):
-        # FIXME:
-        self._raw.default_op_components(complementary)
+        self._raw.default_op_components_compl(complementary)
 
     def default_op_components(self, direct, sys, sysDot, haveNormops=False, \
                               haveCompops=True):
@@ -150,10 +165,11 @@ def InitStartingBlock(forward=True, forward_starting_size=1,
     return startingBlock
 
 # haveNormops whether construct CRE_DESCOMP
-def InitNewSystemBlock(dmrg_env, system, systemDot, haveNormops):
+# haveCompops whether construct CRE_DESCOMP
+def InitNewSystemBlock(dmrg_env, system, systemDot, haveNormops=False, haveCompops=True):
+    print "InitNewSystemBlock"
     direct = True # direct is obtained form dmrginp, true by default
     storagetype = 0 # most case DISTRIBUTED_STORAGE, but we use local for testing
-    haveCompops = True # whether construct CRE_DESCOMP
 
     newsys = SpinBlock(dmrg_env)
     newsys.default_op_components(direct, system, systemDot, haveNormops, haveCompops)
@@ -210,13 +226,16 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
     #    newenviron = InitNewSystemBlock(envrion, environDot)
     #return environ, newenviron
 
+    forward_starting_size = backward_starting_size = 1
+    nexact = forward_starting_size # or backward_starting_size
     environ = SpinBlock(dmrg_env)
     if dot_with_sys and onedot:
         newenviron = SpinBlock(dmrg_env)
         if warmUp:
-            if 0 and len(env_sites) == nexact: #nexact?
+            if len(env_sites) == nexact:
                 newenviron.default_op_components_compl(not forward)
                 newenviron.BuildTensorProductBlock(env_sites)
+                newenviron.save()
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
@@ -228,9 +247,10 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
     else:
         haveNormops = not dot_with_sys # see initblocks.C
         if warmUp:
-            if 0 and len(env_sites) == nexact: #nexact?
+            if len(env_sites) == nexact:
                 environ.default_op_components_compl(not forward)
                 environ.BuildTensorProductBlock(env_sites)
+                environ.save()
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
@@ -252,6 +272,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
 def InitBigBlock(dmrg_env, newsys, newenv):
     big = SpinBlock(dmrg_env)
     big._raw.set_big_components() # TODO: direct access self.ops
+    print 'start InitBigBlock', newsys.stateInfo.totalStates, newenv.stateInfo.totalStates
     big.BuildSumBlock(PARTICLE_SPIN_NUMBER_CONSTRAINT, newsys, newenv)
     return big
 
