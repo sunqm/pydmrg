@@ -11,6 +11,7 @@
 
 using namespace SpinAdapted;
 
+int save_rotmat(char *filerotmat, std::vector<Matrix> *mat);
 int load_rotmat(char *filerotmat, std::vector<Matrix> *mat);
 
 int update_rotmat(std::vector<Matrix> *rotateMatrix,

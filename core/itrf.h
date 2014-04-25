@@ -11,6 +11,8 @@
 
 using namespace SpinAdapted;
 
+int save_wavefunction(char *filewave, Wavefunction *oldWave,
+                      StateInfo *waveInfo);
 int load_wavefunction(char *filewave, Wavefunction *oldWave,
                       StateInfo *waveInfo);
 
@@ -18,6 +20,7 @@ int load_wavefunction(char *filewave, Wavefunction *oldWave,
 int x_SpinQuantum_irrep(SpinQuantum *sq);
 
 
+int save_spinblock(char *filespinblock, SpinBlock *b);
 int load_spinblock(char *filespinblock, SpinBlock *b);
 StateInfo *x_SpinBlock_stateInfo(SpinBlock *b);
 std::vector<int> *x_SpinBlock_complementary_sites(SpinBlock *b);

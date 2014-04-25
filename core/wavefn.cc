@@ -21,27 +21,51 @@ using namespace SpinAdapted;
 //char file [5000];
 //sprintf(file, "%s%s%d%s%d%s%d%s%d%s", fileprefix, "/wave-", sites[0],
 //        "-", *(sites.rbegin()), ".", mpirank, ".", root_id, ".tmp");
+int save_wavefunction(char *filewave, Wavefunction *oldWave,
+                      StateInfo *waveInfo)
+{
+    bool onedot = oldWave->get_onedot();
+
+    waveInfo->Allocate();
+
+    std::ofstream ofs(filewave, std::ios::binary);
+    boost::archive::binary_oarchive save_wave(ofs);
+    save_wave << onedot
+              << *waveInfo
+              << *waveInfo->leftStateInfo
+              << *(waveInfo->leftStateInfo->leftStateInfo)
+              << *(waveInfo->leftStateInfo->rightStateInfo)
+              << *waveInfo->rightStateInfo;
+    if (!onedot) {
+        save_wave << *(waveInfo->rightStateInfo->leftStateInfo)
+            << *(waveInfo->rightStateInfo->rightStateInfo);
+    }
+    oldWave->Save(ofs);
+    ofs.close();
+    return 0;
+}
+
 int load_wavefunction(char *filewave, Wavefunction *oldWave,
-                      StateInfo *pwaveInfo)
+                      StateInfo *waveInfo)
 {
     bool onedot;
-    StateInfo& waveInfo = *pwaveInfo;
 
-    waveInfo.Allocate();
+    waveInfo->Allocate();
 
     std::ifstream ifs(filewave, std::ios::binary);
     boost::archive::binary_iarchive load_wave(ifs);
     load_wave >> onedot
-              >> waveInfo
-              >> *waveInfo.leftStateInfo
-              >> *(waveInfo.leftStateInfo->leftStateInfo)
-              >> *(waveInfo.leftStateInfo->rightStateInfo)
-              >> *waveInfo.rightStateInfo;
+              >> *waveInfo
+              >> *waveInfo->leftStateInfo
+              >> *(waveInfo->leftStateInfo->leftStateInfo)
+              >> *(waveInfo->leftStateInfo->rightStateInfo)
+              >> *waveInfo->rightStateInfo;
     if (!onedot) {
-        load_wave >> *(waveInfo.rightStateInfo->leftStateInfo)
-            >> *(waveInfo.rightStateInfo->rightStateInfo);
+        load_wave >> *(waveInfo->rightStateInfo->leftStateInfo)
+            >> *(waveInfo->rightStateInfo->rightStateInfo);
     }
     oldWave->Load(ifs);
+    oldWave->set_onedot(onedot);
     ifs.close();
     return 0;
 }

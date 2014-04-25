@@ -42,10 +42,35 @@ class SpinBlock(object):
         self.stateInfo.refresh_by(self._raw.get_stateInfo())
         self.sites = self._raw.sites
 
-    def save(self):
-        #self._raw.sync(self.leftBlock._raw, self.rightBlock._raw,
-        #               self.sites, self.stateInfo)
-        print 'TODO: store me'
+    def save(self, start_id, end_id, forward=True, prefix=None):
+        #TODO:self._raw.sync:
+        #TODO: localstorage
+        #TODO: name
+        #TODO: complementary
+        #TODO: hasMemoryAllocated
+        #TODO: normal
+        #TODO: direct
+        #TODO: loopblock
+        #TODO: sites
+        #TODO: complementary_sites
+        #TODO: stateInfo
+        #TODO: ops
+        if prefix is None:
+            if self._env is None:
+                prefix = os.environ['TMPDIR'] + '/'
+            else:
+                prefix = self._env.scratch_prefix + '/'
+        if forward:
+            blockfile = '%sSpinBlock-forward-%d-%d.0.tmp' \
+                    % (prefix, start_id, end_id)
+        else:
+            blockfile = '%sSpinBlock-backward-%d-%d.0.tmp' \
+                    % (prefix, start_id, end_id)
+        self._raw.save(blockfile)
+
+    def _sync_self2raw(self):
+        #TODO: sync to raw everytime before calling Pydmrg_some_function
+        pass
 
     def init_dot(self, forward, start_id, dot_size=1, is_complement=False):
         # see e.g. sweep.C, BlockAndDecimate
@@ -66,8 +91,10 @@ class SpinBlock(object):
     def BuildSumBlock(self, constraint, lBlock, rBlock):
         self.leftBlock = lBlock
         self.rightBlock = rBlock
-        #maybe initialize self.twoInt here
-        self.sites = self.leftBlock.sites
+        #maybe initialize self._raw._this.twoInt here
+        print 'BuildSumBlock    ', self.leftBlock.stateInfo.totalStates, \
+                self.rightBlock.stateInfo.totalStates
+        self.sites = sorted(self.leftBlock.sites + self.rightBlock.sites)
         c_sites = self.get_complementary_sites()
         self._raw.set_complementary_sites(c_sites)
         self.stateInfo = stateinfo.TensorProduct(self.leftBlock.stateInfo,
@@ -87,14 +114,24 @@ class SpinBlock(object):
     def BuildTensorProductBlock(self, sites):
         self._raw.BuildTensorProductBlock(sites)
         self.sites = self._raw.sites
+        self.stateInfo.refresh_by(self._raw.get_stateInfo())
         return self
 
     def transform_operators(self, rotmat):
+        #old_si = self.stateInfo
         self._raw.transform_operators(rotmat._raw)
+        self.stateInfo.refresh_by(self._raw.get_stateInfo())
+        print 'after transform_operators', self.stateInfo.totalStates
+        #self.stateInfo.previousStateInfo = old_si seems no use now in Block
+
+        #for i in self.stateInfo.quanta.size():
+        #    assert(self.stateInfo.quanta[i] == old_si.quanta[newQuantaMap[i]])
+
+        self.leftBlock = None
+        self.rightBlock = None
 
     def default_op_components_compl(self, complementary=False):
-        # FIXME:
-        self._raw.default_op_components(complementary)
+        self._raw.default_op_components_compl(complementary)
 
     def default_op_components(self, direct, sys, sysDot, haveNormops=False, \
                               haveCompops=True):
@@ -122,11 +159,11 @@ class SpinBlock(object):
         self._raw.set_loopblock(tf)
 
 
-def InitStartingBlock(forward=True, forward_starting_size=1,
+def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
                       backward_starting_size=1,
                       add_noninteracting_orbs=True,
                       molecule_quantum_tot_spin=0):
-    startingBlock = SpinBlock()
+    startingBlock = SpinBlock(dmrg_env)
     if forward:
         startingBlock.init_dot(True, 0, forward_starting_size, True)
         if add_noninteracting_orbs and molecule_quantum_tot_spin != 0:
@@ -134,25 +171,26 @@ def InitStartingBlock(forward=True, forward_starting_size=1,
             s.init(nparticle, spin, irrep_id) # fixme, nparticle =?= spin, see initblocks.C
             addstate = stateinfo.StateInfo()
             addstate.init_by_a_spinquantum(s)
-            dummyblock = SpinBlock()
+            dummyblock = SpinBlock(dmrg_env)
             dummyblock.init_by_stateinfo(addstate)
-            newblk = SpinBlock()
+            newblk = SpinBlock(dmrg_env)
             newblk.default_op_components(False, startingBlock, dummyblock, \
                                          True, True)
             newblk.BuildSumBlock(NO_PARTICLE_SPIN_NUMBER_CONSTRAINT,
                                  startingBlock, dummyblock)
             startingBlock = newblk
     else:
-        backwardSites = range(last_site-back_starting_site, last_site)
+        backwardSites = range(dmrg_env.tot_sites-backward_starting_size,
+                              dmrg_env.tot_sites)
         startingBlock.default_op_components_compl(False)
         startingBlock.BuildTensorProductBlock(backwardSites)
     return startingBlock
 
 # haveNormops whether construct CRE_DESCOMP
-def InitNewSystemBlock(dmrg_env, system, systemDot, haveNormops):
+# haveCompops whether construct CRE_DESCOMP
+def InitNewSystemBlock(dmrg_env, system, systemDot, haveNormops=False, haveCompops=True):
     direct = True # direct is obtained form dmrginp, true by default
     storagetype = 0 # most case DISTRIBUTED_STORAGE, but we use local for testing
-    haveCompops = True # whether construct CRE_DESCOMP
 
     newsys = SpinBlock(dmrg_env)
     newsys.default_op_components(direct, system, systemDot, haveNormops, haveCompops)
@@ -209,13 +247,16 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
     #    newenviron = InitNewSystemBlock(envrion, environDot)
     #return environ, newenviron
 
+    forward_starting_size = backward_starting_size = 1
+    nexact = forward_starting_size # or backward_starting_size
     environ = SpinBlock(dmrg_env)
     if dot_with_sys and onedot:
         newenviron = SpinBlock(dmrg_env)
         if warmUp:
-            if 0 and len(env_sites) == nexact: #nexact?
+            if len(env_sites) == nexact:
                 newenviron.default_op_components_compl(not forward)
                 newenviron.BuildTensorProductBlock(env_sites)
+                newenviron.save(env_sites[0], env_sites[-1], forward=True)
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
@@ -227,9 +268,10 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
     else:
         haveNormops = not dot_with_sys # see initblocks.C
         if warmUp:
-            if 0 and len(env_sites) == nexact: #nexact?
+            if len(env_sites) == nexact:
                 environ.default_op_components_compl(not forward)
                 environ.BuildTensorProductBlock(env_sites)
+                environ.save(env_sites[0], env_sites[-1], forward=True)
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
@@ -251,6 +293,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
 def InitBigBlock(dmrg_env, newsys, newenv):
     big = SpinBlock(dmrg_env)
     big._raw.set_big_components() # TODO: direct access self.ops
+    print 'start InitBigBlock', newsys.stateInfo.totalStates, newenv.stateInfo.totalStates
     big.BuildSumBlock(PARTICLE_SPIN_NUMBER_CONSTRAINT, newsys, newenv)
     return big
 
@@ -258,18 +301,7 @@ def InitBigBlock(dmrg_env, newsys, newenv):
 
 
 if __name__ == '__main__':
-    pass
-    files = [ 'backward-1-3.0', 'backward-1-5.0', 'backward-1-7.0',
-             'backward-2-3.0', 'backward-2-5.0', 'backward-2-7.0',
-             'backward-3-3.0', 'backward-3-5.0', 'backward-3-7.0',
-             'backward-4-5.0', 'backward-4-7.0', 'backward-5-5.0',
-             'backward-5-7.0', 'backward-6-7.0', 'backward-7-7.0',
-             'forward-0-0.0', 'forward-0-1.0', 'forward-0-2.0',
-             'forward-0-3.0', 'forward-0-4.0', 'forward-0-5.0',
-             'forward-0-6.0', 'forward-3-3.0', 'forward-5-5.0',
-             'forward-7-7.0',]
-    files = ['/dev/shm/SpinBlock-%s.tmp'%i for i in files]
-    block = SpinBlock(files)
-    block.load(5)
+    block = SpinBlock()
+    block.load(0, 4, True, prefix='/dev/shm/')
     print block.sites
     block.printOperatorSummary()
