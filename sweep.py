@@ -24,8 +24,8 @@ def do_one(dmrg_env, isweep, forward=True, warmUp=False):
     dot_with_sys = True
     for iblkcyc in range(dmrg_env.max_blk_cyc):
         guesstype = decide_guesstype(dmrg_env, warmUp, isweep, iblkcyc)
-        print 'Block Iteration =', iblkcyc, ' forawd =', forward, \
-                'guesstype =', guesstype
+        print 'Sweep = ', isweep, 'Block Iteration =', iblkcyc, \
+                ' forawd =', forward, 'guesstype =', guesstype
         sys, e = block_cycle(dmrg_env, isweep, sys, dot_with_sys, guesstype,
                              warmUp, onedot=False)
         #print 'Block Iteration = %d finish, stateInfo='%iblkcyc, sys.stateInfo.totalStates
@@ -88,12 +88,14 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
         env_start_id = sys_start_id - dmrg_env.sys_add
     sysDot = spinblock.SpinBlock(dmrg_env)
     sysDot.init_dot(forward, sys_start_id, dmrg_env.sys_add)
-    if not onedot:
-        envDot = spinblock.SpinBlock(dmrg_env)
-        envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
 
     print 'before InitNewSystemBlock',\
             system.stateInfo.totalStates, sysDot.stateInfo.totalStates
+    print 'system sites', system.sites
+    if not onedot:
+        envDot = spinblock.SpinBlock(dmrg_env)
+        envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
+    print onedot, dot_with_sys
     if onedot and not dot_with_sys:
         newsys = system
     else:
@@ -162,8 +164,8 @@ def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ, envD
     rawfn, energy = _dmrg.Pysolve_wavefunction(big._raw, nroots, dot_with_sys,
                                                warmUp, onedot, tol, guesstype,
                                                additional_noise)
-    print onedot, dot_with_sys
     if onedot and not dot_with_sys:
+        #FIXME
         print 'after solving wfn, newsys'
         newsys = spinblock.InitNewSystemBlock(dmrg_env, system, sysDot,
                                               False)
@@ -181,6 +183,7 @@ def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ, envD
     rotmat = rotationmat.update_rotmat(dmrg_env, wfn, newsys, newbig,
                                        keep_states, keep_qstates, noise)
 
+    print 'save rotation matrix and wfn'
     start_id = newbig.leftBlock.sites[0]
     end_id = newbig.leftBlock.sites[-1]
     rotmat.save(start_id, end_id, 0)

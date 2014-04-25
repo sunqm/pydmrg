@@ -10,6 +10,7 @@ import sweep
 
 class DMRGEnv(object):
     def __init__(self, **keywords):
+        self.verbose = 0
         self.scratch_prefix = '/tmp'
         self.sys_add = 1
         self.env_add = 1
@@ -41,7 +42,7 @@ class DMRGEnv(object):
         finp.write('nelec %d\n' % self.nelec)
         finp.write('spin %d\n' % self.spin)
         #finp.write('irrep 1\n')
-        finp.write('outputlevel 0\n')
+        finp.write('outputlevel %d\n' % self.verbose)
         finp.write('schedule\n')
         for i,k in enumerate(self.sweep_step):
             finp.write('%d %d  %g %g\n' % (k, self.keep_states[i],
@@ -87,19 +88,20 @@ def dmrg_single(tol, fcidump):
     dmrg_env = DMRGEnv()
     dmrg_env.scratch_prefix = '/dev/shm/pydmrg'
     dmrg_env.sym = 'd2h'
+    dmrg_env.verbose = 0
     dmrg_env.update_dmrginp(fcidump)
 
     max_sweep_cyc = 20
     eforward = sweep.do_one(dmrg_env, 0, forward=True, warmUp=True)
     ebackward = 0
-    for isweep in range(max_sweep_cyc):
+    for isweep in range(max_sweep_cyc/2):
         old_ef = eforward
         old_eb = ebackward
-        ebackward = sweep.do_one(dmrg_env, isweep, forward=False, warmUp=False)
+        ebackward = sweep.do_one(dmrg_env, isweep*2+1, forward=False, warmUp=False)
         #TODO: extapolate energy
 
-        eforward = sweep.do_one(dmrg_env, isweep, forward=True, warmUp=False)
-        if abs(eforward-old_ef) < tol or abs(ebackward-old_eb) < tol:
+        eforward = sweep.do_one(dmrg_env, isweep*2+2, forward=True, warmUp=False)
+        if abs(eforward-old_ef) < tol and abs(ebackward-old_eb) < tol:
             break
     #TODO: extapolate energy
 
@@ -111,4 +113,4 @@ def find_index(test, lst):
     return None
 
 if __name__ == '__main__':
-    dmrg_single(1e-6, sys.argv[1])
+    dmrg_single(1e-8, sys.argv[1])

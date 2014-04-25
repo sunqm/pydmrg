@@ -45,13 +45,14 @@ class Wavefunction(object):
         self._raw = _dmrg.NewRawWavefunction()
         self.stateInfo = stateinfo.StateInfo()
         raw_si = self._raw.load(wfnfile)
-        self.stateInfo.refresh_by(raw_si)
+        self.stateInfo.refresh_by(raw_si, True)
         self.deltaQuantum = quanta.SpinQuantum()
         self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
         self._sync_raw2self()
 
     def save(self, stateInfo, start_id, end_id, root_id=0, prefix=None):
         #TODO:self._raw.sync:
+        #TODO: *stateInfo*
         #TODO: orbs 
         #TODO: deltaQuantum 
         #TODO: fermion 

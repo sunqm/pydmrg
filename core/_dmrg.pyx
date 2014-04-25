@@ -370,6 +370,7 @@ cdef class NewRawWavefunction(RawWavefunction):
         self._this = new Wavefunction()
     def __dealloc__(self):
         del self._this
+        #TODO: call stateInfo.Free to release leftStateInfo, rightStateInfo, ...
     def load(self, wfnfile):
         #self.stateInfo = NewRawStateInfo()
         stateInfo = NewRawStateInfo()

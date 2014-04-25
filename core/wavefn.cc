@@ -26,8 +26,6 @@ int save_wavefunction(char *filewave, Wavefunction *oldWave,
 {
     bool onedot = oldWave->get_onedot();
 
-    waveInfo->Allocate();
-
     std::ofstream ofs(filewave, std::ios::binary);
     boost::archive::binary_oarchive save_wave(ofs);
     save_wave << onedot
