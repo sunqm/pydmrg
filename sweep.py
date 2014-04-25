@@ -22,12 +22,13 @@ def do_one(dmrg_env, isweep, forward=True, warmUp=False):
     sys.save(sys.sites[0], sys.sites[-1], forward)
 
     dot_with_sys = True
-    guesstype = BASIC
     for iblkcyc in range(dmrg_env.max_blk_cyc):
-        print 'Block Iteration =', iblkcyc, ' forawd/backward', forward
+        guesstype = decide_guesstype(dmrg_env, warmUp, isweep, iblkcyc)
+        print 'Block Iteration =', iblkcyc, ' forawd =', forward, \
+                'guesstype =', guesstype
         sys, e = block_cycle(dmrg_env, isweep, sys, dot_with_sys, guesstype,
                              warmUp, onedot=False)
-        print 'Block Iteration = %d finish, stateInfo='%iblkcyc, sys.stateInfo.totalStates
+        #print 'Block Iteration = %d finish, stateInfo='%iblkcyc, sys.stateInfo.totalStates
         if forward:
             dot_with_sys = (sys.get_complementary_sites()[0] < dmrg_env.tot_sites/2)
         else:
@@ -36,6 +37,15 @@ def do_one(dmrg_env, isweep, forward=True, warmUp=False):
 
         #FIXME: save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM
     return e
+
+def decide_guesstype(dmrg_env, warmUp, isweep, iblkcyc):
+    if warmUp or (isweep < 2 and iblkcyc == 0):
+        return BASIC
+    else:
+        if iblkcyc == 0:
+            return TRANSPOSE
+        else:
+            return TRANSFORM
 
 def block_cycle(dmrg_env, isweep, sys, dot_with_sys=True, guesstype=BASIC,
                 warmUp=False, onedot=True):
@@ -60,6 +70,7 @@ def Startup(dmrg_env, system):
     rmat = rotationmat.RotationMatrix()
     rmat.refresh_by(_dmrg.Pyguess_rotmat(newsys._raw, keptstates, keptqstates))
     newsys.transform_operators(rmat)
+    rmat.save(newsys.sites[0], newsys.sites[-1])
     return newsys
 
 # system is restored somewhere
@@ -81,7 +92,8 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
         envDot = spinblock.SpinBlock(dmrg_env)
         envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
 
-    print 'before InitNewSystemBlock',system.stateInfo.totalStates, sysDot.stateInfo.totalStates
+    print 'before InitNewSystemBlock',\
+            system.stateInfo.totalStates, sysDot.stateInfo.totalStates
     if onedot and not dot_with_sys:
         newsys = system
     else:
@@ -94,8 +106,7 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
                                               dot_with_sys)
 
     print 'before InitNewEnvironmentBlock',\
-            system.stateInfo.totalStates, sysDot.stateInfo.totalStates,\
-            envDot.stateInfo.totalStates
+            system.stateInfo.totalStates, sysDot.stateInfo.totalStates
     if onedot:
         environ, newenv = \
                 spinblock.InitNewEnvironmentBlock(dmrg_env, sysDot, system,
@@ -143,23 +154,6 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
     return newsys, energy
 
 
-#def RenormaliseFrom(sweepParams.set_lowest_energy(),
-#                    sweepParams.set_lowest_energy_spins()
-#                    sweepParams.set_lowest_error()
-#                    sweepParams.get_keep_states(),
-#                    sweepParams.get_keep_qstates(),
-#                    sweepParams.get_davidson_tol(),
-#                    big,
-#                    sweepParams.get_guesstype(),
-#                    sweepParams.get_noise(),
-#                    sweepParams.get_additional_noise(),
-#                    sweepParams.get_onedot(),
-#                    system,
-#                    systemDot,
-#                    environmentDot,
-#                    environment,
-#                    dot_with_sys,
-#                    useSlater, sweepParams.get_sweep_iter()):
 def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ, envDot,
                     dot_with_sys, warmUp=False, onedot=True, guesstype=BASIC):
     tol = 1e-8
@@ -187,7 +181,9 @@ def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ, envD
     rotmat = rotationmat.update_rotmat(dmrg_env, wfn, newsys, newbig,
                                        keep_states, keep_qstates, noise)
 
-    #FIXME: save wavefunction and rotation mat for later use
+    start_id = newbig.leftBlock.sites[0]
+    end_id = newbig.leftBlock.sites[-1]
+    rotmat.save(start_id, end_id, 0)
+    wfn.save(newbig.stateInfo, start_id, end_id, 0)
 
     return newsys, energy, rotmat
-

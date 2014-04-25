@@ -403,8 +403,7 @@ cdef class NewRawRotationMatrix(RawRotationMatrix):
         self._this = new vector[Matrix]()
     def __dealloc__(self):
         del self._this
-    def load(self, filerotmat, nquanta):
-        self._this.resize(nquanta)
+    def load(self, filerotmat):
         load_rotmat(filerotmat, self._this)
 
 
@@ -451,8 +450,8 @@ def Pysolve_wavefunction(RawSpinBlock big, nroots, dot_with_sys, warmUp,
     solution.resize(nroots)
     cdef vector[double] energies
     energies.resize(nroots)
-    cdef guessWaveTypes t = guesstype
-    solve_wavefunction(solution, energies, big._this[0], tol, t,
+    cdef guessWaveTypes gt = guesstype
+    solve_wavefunction(solution, energies, big._this[0], tol, gt,
                        onedot, dot_with_sys, warmUp, additional_noise)
     wfn = NewRawWavefunction()
     wfn._this[0] = solution[0]

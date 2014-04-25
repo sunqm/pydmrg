@@ -22,7 +22,7 @@ int save_rotmat(char *filerotmat, std::vector<Matrix> *mat)
 {
     std::ofstream ofs(filerotmat, std::ios::binary);
     boost::archive::binary_oarchive save_mat(ofs);
-    save_mat << mat;
+    save_mat << *mat;
     ofs.close();
     return 0;
 }
@@ -31,7 +31,7 @@ int load_rotmat(char *filerotmat, std::vector<Matrix> *mat)
 {
     std::ifstream ifs(filerotmat, std::ios::binary);
     boost::archive::binary_iarchive load_mat(ifs);
-    load_mat >> mat;
+    load_mat >> *mat;
     ifs.close();
     return 0;
 }

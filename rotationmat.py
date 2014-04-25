@@ -8,17 +8,11 @@ import _dmrg
 import wavefunction
 
 class RotationMatrix(object):
-    def __init__(self, dmrg_env=None, nquanta=None):
+    def __init__(self, dmrg_env=None):
         self._env = dmrg_env
-        self.size = nquanta
+        self.size = None
 
     def load(self, start_id, end_id, state_id=0, prefix=None):
-        if self.size is None:
-            wfn = wavefunction.Wavefunction()
-            wfn.load(start_id, end_id, state_id, prefix)
-            self.size = wfn.stateInfo.quanta_size
-            print 'init self.size', self.size
-
         if prefix is None:
             if self._env is None:
                 prefix = os.environ['TMPDIR'] + '/'
@@ -29,7 +23,7 @@ class RotationMatrix(object):
         if not os.path.isfile(matfile):
             raise OSError('file %s does not exist' % matfile)
         self._raw = _dmrg.NewRawRotationMatrix()
-        self._raw.load(matfile, self.size)
+        self._raw.load(matfile)
         self._sync_raw2self()
 
     def save(self, start_id, end_id, state_id=0, prefix=None):
