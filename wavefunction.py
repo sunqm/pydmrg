@@ -50,8 +50,24 @@ class Wavefunction(object):
         self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
         self._sync_raw2self()
 
-    def save(self):
-        pass
+    def save(self, sites, root_id=0, prefix=None):
+        #TODO:self._raw.sync:
+        #TODO: orbs 
+        #TODO: deltaQuantum 
+        #TODO: fermion 
+        #TODO: initialised 
+        #TODO: built 
+        #TODO: allowedQuantaMatrix 
+        #TODO: operatorMatrix
+        #TODO: Sign
+        if prefix is None:
+            if self._env is None:
+                prefix = os.environ['TMPDIR'] + '/'
+            else:
+                prefix = self._env.scratch_prefix + '/'
+        wfnfile = '%swave-%d-%d.0.%d.tmp' \
+                % (prefix, sites[0], sites[-1], root_id)
+        self._raw.save(wfnfile, self.stateInfo._this)
 
     def refresh_by(self, rawfn):
         assert(isinstance(rawfn, _dmrg.RawWavefunction))

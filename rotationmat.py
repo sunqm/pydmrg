@@ -32,6 +32,16 @@ class RotationMatrix(object):
         self._raw.load(matfile, self.size)
         self._sync_raw2self()
 
+    def save(self, sites, state_id=0, prefix=None):
+        if prefix is None:
+            if self._env is None:
+                prefix = os.environ['TMPDIR'] + '/'
+            else:
+                prefix = self._env.scratch_prefix + '/'
+        matfile = '%sRotation-%d-%d.0.state%d.tmp' \
+                % (prefix, sites[0], sites[-1], state_id)
+        self._raw.save(matfile)
+
     def refresh_by(self, rawmat):
         assert(isinstance(rawmat, _dmrg.NewRawRotationMatrix))
         self._raw = rawmat
@@ -39,9 +49,6 @@ class RotationMatrix(object):
 
     def _sync_raw2self(self):
         self.size = self._raw.get_size()
-
-    def _sync_self2raw(self):
-        pass
 
     def get_matrix_by_quanta_id(self, quanta_id):
         '''2D numpy array'''

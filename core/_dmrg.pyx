@@ -142,6 +142,7 @@ cdef extern from 'guess_wavefunction.h' namespace 'SpinAdapted::GuessWave':
 
 
 cdef extern from 'itrf.h':
+    int save_rotmat(char *filerotmat, vector[Matrix] *mat)
     int load_rotmat(char *filerotmat, vector[Matrix] *mat)
     int update_rotmat(vector[Matrix] *rotateMatrix,
                       Wavefunction *wfn, SpinBlock *sys, SpinBlock *big,
@@ -154,10 +155,13 @@ cdef extern from 'itrf.h':
     int get_last_site_id()
     void assign_deref_shared_ptr[T](T& dest, T& src)
 
+    int save_wavefunction(char *filewave, Wavefunction *oldWave,
+                          StateInfo *waveInfo)
     int load_wavefunction(char *filewave, Wavefunction *oldWave,
                           StateInfo *waveInfo)
     int x_SpinQuantum_irrep(SpinQuantum *sq)
 
+    int save_spinblock(char *filespinblock, SpinBlock *b)
     int load_spinblock(char *filespinblock, SpinBlock *b)
     #StateInfo *x_SpinBlock_stateInfo(SpinBlock *b)
     #vector[int] *x_SpinBlock_complementary_sites(SpinBlock *b)
@@ -274,6 +278,8 @@ cdef class RawSpinBlock:
         def __get__(self): return self._this.sites
     def printOperatorSummary(self):
         self._this.printOperatorSummary()
+    def save(self, filespinblock):
+        save_spinblock(filespinblock, self._this)
 cdef class NewRawSpinBlock(RawSpinBlock):
     def __cinit__(self):
         self._this = new SpinBlock()
@@ -357,6 +363,8 @@ cdef class RawWavefunction:
     def get_fermion(self): return self._this.get_fermion()
     def allowed(self, i, j): return <bint>self._this.allowed(i,j)
     def get_shape(self): return self._this.nrows(), self._this.ncols()
+    def save(self, wfnfile, RawStateInfo stateInfo):
+        save_wavefunction(wfnfile, self._this, stateInfo._this)
 cdef class NewRawWavefunction(RawWavefunction):
     def __cinit__(self):
         self._this = new Wavefunction()
@@ -388,6 +396,8 @@ cdef class RawRotationMatrix:
             memcpy(<double *>mat.data, &mati.element(0,0), nrow*ncol*sizeof(int))
         return mat
     def get_size(self): return self._this.size()
+    def save(self, filerotmat):
+        save_rotmat(filerotmat, self._this)
 cdef class NewRawRotationMatrix(RawRotationMatrix):
     def __cinit__(self):
         self._this = new vector[Matrix]()

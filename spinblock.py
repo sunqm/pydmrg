@@ -42,10 +42,31 @@ class SpinBlock(object):
         self.stateInfo.refresh_by(self._raw.get_stateInfo())
         self.sites = self._raw.sites
 
-    def save(self):
-        #self._raw.sync(self.leftBlock._raw, self.rightBlock._raw,
-        #               self.sites, self.stateInfo)
-        print 'TODO: store me'
+    def save(self, sites, forward=True, prefix=None):
+        #TODO:self._raw.sync:
+        #TODO: localstorage
+        #TODO: name
+        #TODO: complementary
+        #TODO: hasMemoryAllocated
+        #TODO: normal
+        #TODO: direct
+        #TODO: loopblock
+        #TODO: sites
+        #TODO: complementary_sites
+        #TODO: stateInfo
+        #TODO: ops
+        if prefix is None:
+            if self._env is None:
+                prefix = os.environ['TMPDIR'] + '/'
+            else:
+                prefix = self._env.scratch_prefix + '/'
+        if forward:
+            blockfile = '%sSpinBlock-forward-%d-%d.0.tmp' \
+                    % (prefix, sites[0], sites[-1])
+        else:
+            blockfile = '%sSpinBlock-backward-%d-%d.0.tmp' \
+                    % (prefix, sites[0], sites[-1])
+        self._raw.save(blockfile)
 
     def _sync_self2raw(self):
         #TODO: sync to raw everytime before calling Pydmrg_some_function
@@ -168,7 +189,6 @@ def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
 # haveNormops whether construct CRE_DESCOMP
 # haveCompops whether construct CRE_DESCOMP
 def InitNewSystemBlock(dmrg_env, system, systemDot, haveNormops=False, haveCompops=True):
-    print "InitNewSystemBlock"
     direct = True # direct is obtained form dmrginp, true by default
     storagetype = 0 # most case DISTRIBUTED_STORAGE, but we use local for testing
 
@@ -236,7 +256,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
             if len(env_sites) == nexact:
                 newenviron.default_op_components_compl(not forward)
                 newenviron.BuildTensorProductBlock(env_sites)
-                newenviron.save()
+                newenviron.save(env_sites)
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
@@ -251,7 +271,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
             if len(env_sites) == nexact:
                 environ.default_op_components_compl(not forward)
                 environ.BuildTensorProductBlock(env_sites)
-                environ.save()
+                environ.save(env_sites)
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,

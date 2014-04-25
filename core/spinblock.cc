@@ -13,12 +13,22 @@ using namespace SpinAdapted;
  *     SpinBlock::Load
  */
 
+int save_spinblock(char *filespinblock, SpinBlock *b)
+{
+    std::ofstream ofs(filespinblock, std::ios::binary);
+    boost::archive::binary_oarchive save_block(ofs);
+
+    save_block << *b;
+    ofs.close();
+    return 0;
+}
 int load_spinblock(char *filespinblock, SpinBlock *b)
 {
     std::ifstream ifs(filespinblock, std::ios::binary);
     boost::archive::binary_iarchive load_block(ifs);
 
     load_block >> *b;
+    ifs.close();
     return 0;
 }
 

@@ -77,6 +77,9 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
         env_start_id = sys_start_id - dmrg_env.sys_add
     sysDot = spinblock.SpinBlock(dmrg_env)
     sysDot.init_dot(forward, sys_start_id, dmrg_env.sys_add)
+    if not onedot:
+        envDot = spinblock.SpinBlock(dmrg_env)
+        envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
 
     print 'before InitNewSystemBlock',system.stateInfo.totalStates, sysDot.stateInfo.totalStates
     if onedot and not dot_with_sys:
@@ -90,14 +93,17 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
         newsys = spinblock.InitNewSystemBlock(dmrg_env, system, sysDot, \
                                               dot_with_sys)
 
+    print 'before InitNewEnvironmentBlock',\
+            system.stateInfo.totalStates, sysDot.stateInfo.totalStates,\
+            envDot.stateInfo.totalStates
     if onedot:
         environ, newenv = \
                 spinblock.InitNewEnvironmentBlock(dmrg_env, sysDot, system,
                                                   sysDot, dot_with_sys,
                                                   warmUp, onedot)
     else:
-        envDot = spinblock.SpinBlock(dmrg_env)
-        envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
+        #envDot = spinblock.SpinBlock(dmrg_env)
+        #envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
         environ, newenv = \
                 spinblock.InitNewEnvironmentBlock(dmrg_env, envDot, system,
                                                   sysDot, dot_with_sys,
