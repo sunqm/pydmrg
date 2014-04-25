@@ -85,7 +85,7 @@ def dmrg_single(tol, fcidump):
     # use some dmrginp default settings
     #_dmrg.Pyinitialize_defaults(fcidump, scratch_prefix, symmetry)
     dmrg_env = DMRGEnv()
-    dmrg_env.scratch_prefix = '/dev/shm'
+    dmrg_env.scratch_prefix = '/dev/shm/pydmrg'
     dmrg_env.sym = 'd2h'
     dmrg_env.update_dmrginp(fcidump)
 

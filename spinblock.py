@@ -42,7 +42,7 @@ class SpinBlock(object):
         self.stateInfo.refresh_by(self._raw.get_stateInfo())
         self.sites = self._raw.sites
 
-    def save(self, sites, forward=True, prefix=None):
+    def save(self, start_id, end_id, forward=True, prefix=None):
         #TODO:self._raw.sync:
         #TODO: localstorage
         #TODO: name
@@ -62,10 +62,10 @@ class SpinBlock(object):
                 prefix = self._env.scratch_prefix + '/'
         if forward:
             blockfile = '%sSpinBlock-forward-%d-%d.0.tmp' \
-                    % (prefix, sites[0], sites[-1])
+                    % (prefix, start_id, end_id)
         else:
             blockfile = '%sSpinBlock-backward-%d-%d.0.tmp' \
-                    % (prefix, sites[0], sites[-1])
+                    % (prefix, start_id, end_id)
         self._raw.save(blockfile)
 
     def _sync_self2raw(self):
@@ -163,7 +163,7 @@ def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
                       backward_starting_size=1,
                       add_noninteracting_orbs=True,
                       molecule_quantum_tot_spin=0):
-    startingBlock = SpinBlock()
+    startingBlock = SpinBlock(dmrg_env)
     if forward:
         startingBlock.init_dot(True, 0, forward_starting_size, True)
         if add_noninteracting_orbs and molecule_quantum_tot_spin != 0:
@@ -171,9 +171,9 @@ def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
             s.init(nparticle, spin, irrep_id) # fixme, nparticle =?= spin, see initblocks.C
             addstate = stateinfo.StateInfo()
             addstate.init_by_a_spinquantum(s)
-            dummyblock = SpinBlock()
+            dummyblock = SpinBlock(dmrg_env)
             dummyblock.init_by_stateinfo(addstate)
-            newblk = SpinBlock()
+            newblk = SpinBlock(dmrg_env)
             newblk.default_op_components(False, startingBlock, dummyblock, \
                                          True, True)
             newblk.BuildSumBlock(NO_PARTICLE_SPIN_NUMBER_CONSTRAINT,
@@ -256,7 +256,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
             if len(env_sites) == nexact:
                 newenviron.default_op_components_compl(not forward)
                 newenviron.BuildTensorProductBlock(env_sites)
-                newenviron.save(env_sites)
+                newenviron.save(env_sites[0], env_sites[-1], forward=True)
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
@@ -271,7 +271,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
             if len(env_sites) == nexact:
                 environ.default_op_components_compl(not forward)
                 environ.BuildTensorProductBlock(env_sites)
-                environ.save(env_sites)
+                environ.save(env_sites[0], env_sites[-1], forward=True)
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,

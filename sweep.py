@@ -19,7 +19,7 @@ def do_one(dmrg_env, isweep, forward=True, warmUp=False):
     sys = spinblock.InitStartingBlock(dmrg_env, forward, \
                                       dmrg_env.forward_starting_size, \
                                       dmrg_env.backward_starting_size)
-    #TODO: store sys
+    sys.save(sys.sites[0], sys.sites[-1], forward)
 
     dot_with_sys = True
     guesstype = BASIC
@@ -32,6 +32,7 @@ def do_one(dmrg_env, isweep, forward=True, warmUp=False):
             dot_with_sys = (sys.get_complementary_sites()[0] < dmrg_env.tot_sites/2)
         else:
             dot_with_sys = (sys.sites[0]-1 >= dmrg_env.tot_sites/2)
+        sys.save(sys.sites[0], sys.sites[-1], forward)
 
         #FIXME: save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM
     return e
@@ -53,7 +54,7 @@ def block_cycle(dmrg_env, isweep, sys, dot_with_sys=True, guesstype=BASIC,
 
 
 def Startup(dmrg_env, system):
-    sysDot = spinblock.SpinBlock()
+    sysDot = spinblock.SpinBlock(dmrg_env)
     sysDot.init_by_dot_size(dmrg_env.sys_add)
     newsys = spinblock.InitNewSystemBlock(system, sysDot)
     rmat = rotationmat.RotationMatrix()
@@ -71,7 +72,6 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
     if forward:
         sys_start_id = system.sites[-1] + 1
         env_start_id = sys_start_id + dmrg_env.sys_add
-        print 'ffffffffffffff', system.sites,sys_start_id, env_start_id
     else:
         sys_start_id = system.sites[0] - 1
         env_start_id = sys_start_id - dmrg_env.sys_add

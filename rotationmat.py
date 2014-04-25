@@ -32,14 +32,14 @@ class RotationMatrix(object):
         self._raw.load(matfile, self.size)
         self._sync_raw2self()
 
-    def save(self, sites, state_id=0, prefix=None):
+    def save(self, start_id, end_id, state_id=0, prefix=None):
         if prefix is None:
             if self._env is None:
                 prefix = os.environ['TMPDIR'] + '/'
             else:
                 prefix = self._env.scratch_prefix + '/'
         matfile = '%sRotation-%d-%d.0.state%d.tmp' \
-                % (prefix, sites[0], sites[-1], state_id)
+                % (prefix, start_id, end_id, state_id)
         self._raw.save(matfile)
 
     def refresh_by(self, rawmat):
