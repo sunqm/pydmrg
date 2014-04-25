@@ -138,7 +138,7 @@ class SpinBlock(object):
         self._raw.set_loopblock(tf)
 
 
-def InitStartingBlock(forward=True, forward_starting_size=1,
+def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
                       backward_starting_size=1,
                       add_noninteracting_orbs=True,
                       molecule_quantum_tot_spin=0):
@@ -159,7 +159,8 @@ def InitStartingBlock(forward=True, forward_starting_size=1,
                                  startingBlock, dummyblock)
             startingBlock = newblk
     else:
-        backwardSites = range(last_site-back_starting_site, last_site)
+        backwardSites = range(dmrg_env.tot_sites-backward_starting_size,
+                              dmrg_env.tot_sites)
         startingBlock.default_op_components_compl(False)
         startingBlock.BuildTensorProductBlock(backwardSites)
     return startingBlock

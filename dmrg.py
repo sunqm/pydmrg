@@ -14,11 +14,13 @@ class DMRGEnv(object):
         self.sys_add = 1
         self.env_add = 1
         self.tot_sites = 1
-        self.max_blk_cyc = 20
         #self.tol = 1e-8
         self.nelec = 1
         self.spin = 1
         self.sym = 'c1'
+        self.forward_starting_size = 1
+        self.backward_starting_size = 1
+        self.max_blk_cyc = 0
 
         self.sweep_step       = [0     ,8     ,18    ]
         self.keep_states      = [20    ,50    ,100   ]
@@ -55,6 +57,13 @@ class DMRGEnv(object):
         self.tot_sites = _dmrg.Pyget_last_site_id() + 1
         os.remove(tmpinp)
 
+        # forward_starting_size, backward_starting_size, sys_add, env_add are
+        # never changed in Block, so n_iters must be updated whenever
+        # tot_sites is changed
+        n_iters = (self.tot_sites - 2*self.forward_starting_size \
+                - self.sys_add - self.env_add) / self.sys_add + 1;
+        self.max_blk_cyc = n_iters
+
     def fully_access_dmrginp(self):
         # maybe TODO: fully access dmrginp private keys
         pass
@@ -80,15 +89,16 @@ def dmrg_single(tol, fcidump):
     dmrg_env.sym = 'd2h'
     dmrg_env.update_dmrginp(fcidump)
 
-    eforward = sweep.do_one(dmrg_env, 0, True, True)
+    max_sweep_cyc = 20
+    eforward = sweep.do_one(dmrg_env, 0, forward=True, warmUp=True)
     ebackward = 0
     for isweep in range(max_sweep_cyc):
         old_ef = eforward
         old_eb = ebackward
-        ebackward = sweep.do_one(dmrg_env, isweep, True)
+        ebackward = sweep.do_one(dmrg_env, isweep, forward=False, warmUp=False)
         #TODO: extapolate energy
 
-        eforward = sweep.do_one(dmrg_env, isweep, False)
+        eforward = sweep.do_one(dmrg_env, isweep, forward=True, warmUp=False)
         if abs(eforward-old_ef) < tol or abs(ebackward-old_eb) < tol:
             break
     #TODO: extapolate energy

@@ -15,16 +15,16 @@ BASIC = 0
 TRANSFORM = 1
 TRANSPOSE = 2
 
-def do_one(dmrg_env, isweep, forward, warmUp=False):
-    forward_starting_size = backward_starting_size = 1
-    sys = spinblock.InitStartingBlock(dmrg_env, forward, forward_starting_size,
-                                      backward_starting_size)
+def do_one(dmrg_env, isweep, forward=True, warmUp=False):
+    sys = spinblock.InitStartingBlock(dmrg_env, forward, \
+                                      dmrg_env.forward_starting_size, \
+                                      dmrg_env.backward_starting_size)
     #TODO: store sys
 
     dot_with_sys = True
     guesstype = BASIC
     for iblkcyc in range(dmrg_env.max_blk_cyc):
-        print 'Block Iteration =', iblkcyc, ' forawd/backward'
+        print 'Block Iteration =', iblkcyc, ' forawd/backward', forward
         sys, e = block_cycle(dmrg_env, isweep, sys, dot_with_sys, guesstype,
                              warmUp, onedot=False)
         print 'Block Iteration = %d finish, stateInfo='%iblkcyc, sys.stateInfo.totalStates
@@ -34,7 +34,7 @@ def do_one(dmrg_env, isweep, forward, warmUp=False):
             dot_with_sys = (sys.sites[0]-1 >= dmrg_env.tot_sites/2)
 
         #FIXME: save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM
-    return energy
+    return e
 
 def block_cycle(dmrg_env, isweep, sys, dot_with_sys=True, guesstype=BASIC,
                 warmUp=False, onedot=True):
@@ -71,18 +71,21 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
     if forward:
         sys_start_id = system.sites[-1] + 1
         env_start_id = sys_start_id + dmrg_env.sys_add
+        print 'ffffffffffffff', system.sites,sys_start_id, env_start_id
     else:
         sys_start_id = system.sites[0] - 1
         env_start_id = sys_start_id - dmrg_env.sys_add
     sysDot = spinblock.SpinBlock(dmrg_env)
     sysDot.init_dot(forward, sys_start_id, dmrg_env.sys_add)
-    envDot = spinblock.SpinBlock(dmrg_env)
-    envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
 
     print 'before InitNewSystemBlock',system.stateInfo.totalStates, sysDot.stateInfo.totalStates
     if onedot and not dot_with_sys:
         newsys = system
     else:
+        #for i in range(system.stateInfo.quanta.size):
+        #    print system.stateInfo.quanta[i]
+        #for i in range(sysDot.stateInfo.quanta.size):
+        #    print sysDot.stateInfo.quanta[i]
         system.addAdditionalCompOps()
         newsys = spinblock.InitNewSystemBlock(dmrg_env, system, sysDot, \
                                               dot_with_sys)
@@ -93,6 +96,8 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
                                                   sysDot, dot_with_sys,
                                                   warmUp, onedot)
     else:
+        envDot = spinblock.SpinBlock(dmrg_env)
+        envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
         environ, newenv = \
                 spinblock.InitNewEnvironmentBlock(dmrg_env, envDot, system,
                                                   sysDot, dot_with_sys,

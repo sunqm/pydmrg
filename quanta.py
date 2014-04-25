@@ -9,6 +9,12 @@ import quanta
 class SpinQuantum(object):
     def __init__(self):
         self._raw = _dmrg.NewRawSpinQuantum()
+        self.particleNumber = None
+        self.totalSpin = None
+        self.irrep = None
+
+    def __str__(self):
+        return '%d:%d:sym=%d' % (self.particleNumber, self.totalSpin, self.irrep)
 
     def refresh_by(self, rawquanta):
         assert(isinstance(rawquanta, _dmrg.RawSpinQuantum))

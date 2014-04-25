@@ -83,11 +83,10 @@ class StateInfo(object):
 
 class _SpinQuantumList(object):
     def __init__(self, super_stateinfo):
+        self.size = len(super_stateinfo.quantaStates)
         self._super_stateinfo = super_stateinfo
     def __getitem__(self, quanta_id):
         return self._super_stateinfo.get_quanta(quanta_id)
-    def size(self):
-        return len(self._super_stateinfo.quantaStates)
 
 def CollectQuanta(old_stateinfo):
     # make self as an unCollectedStateInfo for a new StateInfo
