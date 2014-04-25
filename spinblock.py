@@ -197,60 +197,22 @@ def InitNewSystemBlock(dmrg_env, system, systemDot, haveNormops=False, haveCompo
     newsys.BuildSumBlock(NO_PARTICLE_SPIN_NUMBER_CONSTRAINT, system, systemDot)
     return newsys
 
-def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
-                            dot_with_sys, warmUp=False, onedot=True):
+def InitNewEnvironmentBlock(dmrg_env, isweep, environDot, system, systemDot, \
+                            dot_with_sys, warmUp=False):
     forward = (system.sites[0] == 0)
     if forward:
-        env_start_id = system.sites[-1]+dmrg_env.sys_add+dmrg_env.env_add + 1
+        env_start_id = system.sites[-1]+dmrg_env.sys_add \
+                + dmrg_env.env_add(isweep) + 1
         env_sites = range(env_start_id, dmrg_env.tot_sites)
     else:
-        env_start_id = system.sites[0]-dmrg_env.sys_add-dmrg_env.env_add - 1
+        env_start_id = system.sites[0]-dmrg_env.sys_add \
+                - dmrg_env.env_add(isweep) - 1
         env_sites = range(0, env_start_id+1)
-
-    #newenviron = SpinBlock(dmrg_env)
-    #if warmUp:
-    #    si = stateinfo.TensorProduct(system.stateInfo,
-    #                                 systemDot.stateInfo,
-    #                                 NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
-    #    si = stateinfo.CollectQuanta(si)
-    #    #TODO: maybe need to store environ newenviron for later use
-    #    if 0 and len(env_sites) == nexact: #nexact?
-    #        if dot_with_sys and onedot:
-    #            newenviron.default_op_components_compl(!forward)
-    #            newenviron.BuildTensorProductBlock(env_sites)
-    #        else:
-    #            envrion.default_op_components_compl(!forward)
-    #            envrion.BuildTensorProductBlock(env_sites)
-    #    else:
-    #        if dot_with_sys and onedot:
-    #            for_norm_ops = False
-    #            envblk = newenviron
-    #        else:
-    #            for_norm_ops = haveNormops
-    #            envblk = environ
-    #        if onedot:
-    #            envblk.BuildSlaterBlock(si, for_norm_ops)
-    #        else:
-    #            si = stateinfo.TensorProduct(si, environDot.stateInfo,
-    #                                         NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
-    #            si = stateinfo.CollectQuanta(si)
-    #            envblk.BuildSlaterBlock(si, for_norm_ops)
-    #else:
-    #    if dot_with_sys and onedot:
-    #        newenviron.load(env_sites[0], env_sites[-1], !forward)
-    #    else:
-    #        envrion.load(env_sites[0], env_sites[-1], !forward)
-
-    #if not (dot_wit_sys and onedot):
-    #    envrion.addAdditionalCompOps()
-    #    # initialize newenv as that did in sys-block
-    #    newenviron = InitNewSystemBlock(envrion, environDot)
-    #return environ, newenviron
 
     forward_starting_size = backward_starting_size = 1
     nexact = forward_starting_size # or backward_starting_size
     environ = SpinBlock(dmrg_env)
-    if dot_with_sys and onedot:
+    if dot_with_sys and dmrg_env.onedot(isweep):
         newenviron = SpinBlock(dmrg_env)
         if warmUp:
             if len(env_sites) == nexact:
@@ -277,7 +239,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
                                              systemDot.stateInfo,
                                              NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
                 si = stateinfo.CollectQuanta(si)
-                if not onedot:
+                if not dmrg_env.onedot(isweep):
                     si = stateinfo.TensorProduct(si, environDot.stateInfo,
                                                  NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
                     si = stateinfo.CollectQuanta(si)

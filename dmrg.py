@@ -8,12 +8,15 @@ import tempfile
 import _dmrg
 import sweep
 
+ONEDOT = 0
+TWODOT = 1
+TWODOT_TO_ONEDOT = 2
+
 class DMRGEnv(object):
     def __init__(self, **keywords):
         self.verbose = 0
         self.scratch_prefix = '/tmp'
         self.sys_add = 1
-        self.env_add = 1
         self.tot_sites = 1
         #self.tol = 1e-8
         self.nelec = 1
@@ -22,6 +25,8 @@ class DMRGEnv(object):
         self.forward_starting_size = 1
         self.backward_starting_size = 1
         self.max_blk_cyc = 0
+        self.algorithm = TWODOT_TO_ONEDOT
+        self.onedot_start_cycle = 20 #if algorithm == TWODOT_TO_ONEDOT
 
         self.sweep_step       = [0     ,8     ,18    ]
         self.keep_states      = [20    ,50    ,100   ]
@@ -58,13 +63,6 @@ class DMRGEnv(object):
         self.tot_sites = _dmrg.Pyget_last_site_id() + 1
         os.remove(tmpinp)
 
-        # forward_starting_size, backward_starting_size, sys_add, env_add are
-        # never changed in Block, so n_iters must be updated whenever
-        # tot_sites is changed
-        n_iters = (self.tot_sites - 2*self.forward_starting_size \
-                - self.sys_add - self.env_add) / self.sys_add + 1;
-        self.max_blk_cyc = n_iters
-
     def fully_access_dmrginp(self):
         # maybe TODO: fully access dmrginp private keys
         pass
@@ -81,6 +79,30 @@ class DMRGEnv(object):
                 self.keep_qstates[i], self.davidson_tol[i], \
                 self.noise[i], self.additional_noise[i]
 
+    def max_block_cycle(self, sweep_iter=0):
+        n_iters = (self.tot_sites - 2*self.forward_starting_size \
+                   - self.sys_add - self.env_add(sweep_iter)) / self.sys_add \
+                + 1;
+        return n_iters
+
+    def env_add(self, sweep_iter=0):
+        if self.algorithm == ONEDOT:
+            return 0
+        elif self.algorithm == TWODOT_TO_ONEDOT \
+                and sweep_iter >= self.onedot_start_cycle:
+            return 0
+        else:
+            return 1
+
+    def onedot(self, sweep_iter=0):
+        if self.algorithm == ONEDOT:
+            return True
+        elif self.algorithm == TWODOT_TO_ONEDOT \
+                and sweep_iter >= self.onedot_start_cycle:
+            return True
+        else:
+            return False
+
 
 def dmrg_single(tol, fcidump):
     # use some dmrginp default settings
@@ -91,7 +113,7 @@ def dmrg_single(tol, fcidump):
     dmrg_env.verbose = 0
     dmrg_env.update_dmrginp(fcidump)
 
-    max_sweep_cyc = 20
+    max_sweep_cyc = 80
     eforward = sweep.do_one(dmrg_env, 0, forward=True, warmUp=True)
     ebackward = 0
     for isweep in range(max_sweep_cyc/2):
@@ -102,7 +124,9 @@ def dmrg_single(tol, fcidump):
 
         eforward = sweep.do_one(dmrg_env, isweep*2+2, forward=True, warmUp=False)
         if abs(eforward-old_ef) < tol and abs(ebackward-old_eb) < tol:
-            break
+            if (dmrg_env.algorithm != TWODOT_TO_ONEDOT) \
+               or (isweep > dmrg_env.onedot_start_cycle):
+                break
     #TODO: extapolate energy
 
 
