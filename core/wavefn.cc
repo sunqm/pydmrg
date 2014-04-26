@@ -48,7 +48,7 @@ int load_wavefunction(char *filewave, Wavefunction *oldWave,
 {
     bool onedot;
 
-    waveInfo->Allocate();
+    //waveInfo->Allocate();
 
     std::ifstream ifs(filewave, std::ios::binary);
     boost::archive::binary_iarchive load_wave(ifs);

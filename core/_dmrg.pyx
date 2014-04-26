@@ -62,9 +62,10 @@ cdef extern from 'SpinQuantum.h' namespace 'SpinAdapted':
 
 cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
     # StateInfo class holds
-    # some flags hasAllocatedMemory hasCollectedQuanta hasPreviousStateInfo
+    # some flags hasCollectedQuanta hasPreviousStateInfo
     # oldToNewState (maybe no use now)
     cdef cppclass StateInfo:
+        bool hasAllocatedMemory
         bool initialised
         StateInfo()
         StateInfo(int n, SpinQuantum *q, const int *qS)
@@ -374,8 +375,22 @@ cdef class NewRawWavefunction(RawWavefunction):
     def load(self, wfnfile):
         #self.stateInfo = NewRawStateInfo()
         stateInfo = NewRawStateInfo()
+        stateInfo._this.hasAllocatedMemory = True
+        left = NewRawStateInfo()
+        leftleft = NewRawStateInfo()
+        leftright = NewRawStateInfo()
+        right = NewRawStateInfo()
+        rightleft = NewRawStateInfo()
+        rightright = NewRawStateInfo()
+        left._this.leftStateInfo = leftleft._this
+        left._this.rightStateInfo = leftright._this
+        stateInfo._this.leftStateInfo = left._this
+        right._this.leftStateInfo = rightleft._this
+        right._this.rightStateInfo = rightright._this
+        stateInfo._this.rightStateInfo = right._this
         load_wavefunction(wfnfile, self._this, stateInfo._this)
-        return stateInfo
+        return stateInfo, left, leftleft, leftright, \
+                right, rightleft, rightright
 
 
 cdef class RawMatrix:
