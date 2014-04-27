@@ -476,6 +476,7 @@ def Pysolve_wavefunction(RawSpinBlock big, nroots, dot_with_sys, warmUp,
 def Pyonedot_shufflesysdot(RawStateInfo sguess, RawStateInfo stranspose,
                            RawWavefunction wfguess):
     wftranspose = NewRawWavefunction()
+    wftranspose._this[0] = wfguess._this[0]
     onedot_shufflesysdot(sguess._this[0], stranspose._this[0],
                          wfguess._this[0], wftranspose._this[0])
     return wftranspose

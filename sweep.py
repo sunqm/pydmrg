@@ -8,12 +8,9 @@ import stateinfo
 import quanta
 import wavefunction
 import rotationmat
+import param
 import _dmrg
 
-# guesswaveTypes
-BASIC = 0
-TRANSFORM = 1
-TRANSPOSE = 2
 
 def do_one(dmrg_env, isweep, forward=True, warmUp=False):
     sys = spinblock.InitStartingBlock(dmrg_env, forward, \
@@ -35,18 +32,24 @@ def do_one(dmrg_env, isweep, forward=True, warmUp=False):
         sys.save(sys.sites[0], sys.sites[-1], forward)
 
         #FIXME: save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM
+    print 'finish do_one for sweep', isweep
     return e
 
 def decide_guesstype(dmrg_env, warmUp, isweep, iblkcyc):
     if warmUp or (isweep < 2 and iblkcyc == 0):
-        return BASIC
+        return param.BASIC
     else:
         if iblkcyc == 0:
-            return TRANSPOSE
+            if dmrg_env.algorithm != param.TWODOT_TO_ONEDOT:
+                return param.TRANSPOSE
+            elif isweep != dmrg_env.onedot_start_cycle:
+                return param.TRANSPOSE
+            else:
+                return param.BASIC
         else:
-            return TRANSFORM
+            return param.TRANSFORM
 
-def block_cycle(dmrg_env, isweep, sys, dot_with_sys=True, guesstype=BASIC,
+def block_cycle(dmrg_env, isweep, sys, dot_with_sys=True, guesstype=param.BASIC,
                 warmUp=False):
     if False and warmUp and some_symmetry:
         newsys, energy = Startup(sys)
@@ -75,7 +78,7 @@ def Startup(dmrg_env, system):
 # system is restored somewhere
 # warmUp == useSlater
 def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
-                     guesstype=BASIC):
+                     guesstype=param.BASIC):
     forward = (system.sites[0] == 0)
 
     if forward:
@@ -150,9 +153,9 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
 
 
 def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ,
-                    dot_with_sys, warmUp=False, guesstype=BASIC):
-    tol = 1e-8
-    additional_noise = 1e-6
+                    dot_with_sys, warmUp=False, guesstype=param.BASIC):
+    keep_states, _, keep_qstates, tol, noise, additional_noise = \
+            dmrg_env.sweep_schedule(isweep)
     nroots = 1 # TODO: dynamically decide nroots, see input.C Input::nroots
     rawfn, energy = _dmrg.Pysolve_wavefunction(big._raw, nroots, dot_with_sys,
                                                warmUp, dmrg_env.onedot(isweep),
@@ -172,7 +175,6 @@ def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ,
         newbig = big
     wfn = wavefunction.Wavefunction(dmrg_env)
     wfn.refresh_by(rawfn)
-    keep_states, _, keep_qstates, _, noise, _ = dmrg_env.sweep_schedule(isweep)
     rotmat = rotationmat.update_rotmat(dmrg_env, wfn, newsys, newbig,
                                        keep_states, keep_qstates, noise)
 
