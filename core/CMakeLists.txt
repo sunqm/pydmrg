@@ -45,9 +45,9 @@ configure_file(
   "${PROJECT_SOURCE_DIR}/config.h.in"
   "${PROJECT_BINARY_DIR}/config.h")
 
-file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+#file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 
 #execute_process(COMMAND cython --cplus _dmrg.pyx)
 
@@ -59,7 +59,7 @@ add_library(_dmrg SHARED
   _dmrg.cpp quanta.cc rotmat.cc wavefn.cc stateinfo.cc spinblock.cc
   hacks.cc)
 set_target_properties(_dmrg PROPERTIES PREFIX ""
-  LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../)
+  LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/../)
 
 target_link_libraries(_dmrg
   qcdmrg newmat
