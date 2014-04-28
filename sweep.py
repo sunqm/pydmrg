@@ -13,17 +13,15 @@ import _dmrg
 
 
 def do_one(dmrg_env, isweep, forward=True, warmUp=False):
-    sys = spinblock.InitStartingBlock(dmrg_env, forward, \
-                                      dmrg_env.forward_starting_size, \
-                                      dmrg_env.backward_starting_size)
+    sys = spinblock.InitStartingBlock(dmrg_env, forward)
     sys.save(sys.sites[0], sys.sites[-1], forward)
 
     dot_with_sys = True
     for iblkcyc in range(dmrg_env.max_block_cycle(isweep)):
-        guesstype = decide_guesstype(dmrg_env, warmUp, isweep, iblkcyc)
         print 'Sweep = ', isweep, 'Block Iteration =', iblkcyc, \
-                ' forawd =', forward, 'guesstype =', guesstype
-        sys, e = block_cycle(dmrg_env, isweep, sys, dot_with_sys, guesstype, warmUp)
+                ' forawd =', forward, \
+                'guesstype =', dmrg_env.guesstype(warmUp, isweep, iblkcyc)
+        sys, e = block_cycle(dmrg_env, sys, isweep, iblkcyc, dot_with_sys, warmUp)
         #print 'Block Iteration = %d finish, stateInfo='%iblkcyc, sys.stateInfo.totalStates
         if forward:
             dot_with_sys = (sys.get_complementary_sites()[0] < dmrg_env.tot_sites/2)
@@ -31,31 +29,17 @@ def do_one(dmrg_env, isweep, forward=True, warmUp=False):
             dot_with_sys = (sys.sites[0]-1 >= dmrg_env.tot_sites/2)
         sys.save(sys.sites[0], sys.sites[-1], forward)
 
-        #FIXME: save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM
+        #FIXME: should we save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM ?
     print 'finish do_one for sweep', isweep
     return e
 
-def decide_guesstype(dmrg_env, warmUp, isweep, iblkcyc):
-    if warmUp or (isweep < 2 and iblkcyc == 0):
-        return param.BASIC
-    else:
-        if iblkcyc == 0:
-            if dmrg_env.algorithm != param.TWODOT_TO_ONEDOT:
-                return param.TRANSPOSE
-            elif isweep != dmrg_env.onedot_start_cycle:
-                return param.TRANSPOSE
-            else:
-                return param.BASIC
-        else:
-            return param.TRANSFORM
-
-def block_cycle(dmrg_env, isweep, sys, dot_with_sys=True, guesstype=param.BASIC,
-                warmUp=False):
+def block_cycle(dmrg_env, sys, isweep, iblk, dot_with_sys=True, warmUp=False):
+    guesstype = dmrg_env.guesstype(warmUp, isweep, iblk)
     if False and warmUp and some_symmetry:
         newsys, energy = Startup(sys)
     else:
-        newsys, energy = BlockAndDecimate(dmrg_env, isweep, sys, dot_with_sys,
-                                          warmUp, guesstype)
+        newsys, energy = BlockAndDecimate(dmrg_env, sys, isweep, \
+                                          dot_with_sys, warmUp, guesstype)
         print 'newsys of block_cycle ',newsys.stateInfo.totalStates
 
     print 'output_state_summay'
@@ -77,7 +61,7 @@ def Startup(dmrg_env, system):
 
 # system is restored somewhere
 # warmUp == useSlater
-def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
+def BlockAndDecimate(dmrg_env, system, isweep, dot_with_sys, warmUp=False,
                      guesstype=param.BASIC):
     forward = (system.sites[0] == 0)
 
@@ -162,7 +146,6 @@ def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ,
                                                tol, guesstype,
                                                additional_noise)
     if dmrg_env.onedot(isweep) and not dot_with_sys:
-        #FIXME
         print 'after solving wfn, newsys'
         newsys = spinblock.InitNewSystemBlock(dmrg_env, system, sysDot,
                                               False)

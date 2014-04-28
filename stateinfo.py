@@ -34,15 +34,13 @@ class StateInfo(object):
             self.rightStateInfo = StateInfo()
             self.rightStateInfo._raw = self._raw.rightStateInfo
             self.rightStateInfo._sync_raw2self()
-        #FIXME: maybe have bug
+        #FIXME: carefully sync leftStateInfo etc.
         #self.allowedQuanta = self._raw.get_whole_allowedQuanta()
         #self.leftUnMapQuanta = self._raw.leftUnMapQuanta
         #self.rightUnMapQuanta = self._raw.leftUnMapQuanta
-
-        #TODO: and leftStateInfo.leftStateInfo, leftStateInfo.rightStateInfo
         # rightStateInfo.leftStateInfo, rightStateInfo.rightStateInfo
 
-        #how to initialize:
+        #FIXME: how to initialize?
         # self.unCollectedStateInfo self.leftStateInfo self.rightStateInfo
 
     def init_by_spinquantum(self, n, sq, qs_lst):

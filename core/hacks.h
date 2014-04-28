@@ -6,6 +6,12 @@
 
 #include <stdio.h>
 #include <boost/shared_ptr.hpp>
+#include "input.h"
+
+namespace SpinAdapted {
+extern Input dmrginp;
+}
+
 
 void init_dmrginp(char *conf);
 int get_last_site_id();
