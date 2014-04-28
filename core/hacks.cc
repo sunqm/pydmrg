@@ -10,10 +10,7 @@
 #include "Symmetry.h"
 #include "input.h"
 #include "orbstring.h"
-
-namespace SpinAdapted {
-extern Input dmrginp;
-}
+#include "hacks.h"
 
 using namespace SpinAdapted;
 

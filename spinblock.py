@@ -7,11 +7,8 @@ import os, sys
 import copy
 import _dmrg
 import stateinfo
+import param
 
-NO_PARTICLE_SPIN_NUMBER_CONSTRAINT = 0
-PARTICLE_SPIN_NUMBER_CONSTRAINT = 1
-LOCAL_STORAGE = 0
-DISTRIBUTED_STORAGE = 1
 
 class SpinBlock(object):
     def __init__(self, dmrg_env=None):
@@ -100,7 +97,7 @@ class SpinBlock(object):
         self.stateInfo = stateinfo.TensorProduct(self.leftBlock.stateInfo,
                                                  self.rightBlock.stateInfo,
                                                  constraint)
-        if constraint != PARTICLE_SPIN_NUMBER_CONSTRAINT:
+        if constraint != param.PARTICLE_SPIN_NUMBER_CONSTRAINT:
             self.stateInfo = stateinfo.CollectQuanta(self.stateInfo)
 
         self._raw.sync(self.leftBlock._raw, self.rightBlock._raw, \
@@ -123,7 +120,6 @@ class SpinBlock(object):
         self.stateInfo.refresh_by(self._raw.get_stateInfo())
         print 'after transform_operators', self.stateInfo.totalStates
         #self.stateInfo.previousStateInfo = old_si seems no use now in Block
-
         #for i in self.stateInfo.quanta.size():
         #    assert(self.stateInfo.quanta[i] == old_si.quanta[newQuantaMap[i]])
 
@@ -159,14 +155,18 @@ class SpinBlock(object):
         self._raw.set_loopblock(tf)
 
 
-def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
-                      backward_starting_size=1,
-                      add_noninteracting_orbs=True,
-                      molecule_quantum_tot_spin=0):
+def InitStartingBlock(dmrg_env, forward=True):
+    # usually molecule_quantum_tot_spin = 0
+    molecule_quantum_tot_spin = dmrg_env.spin
+    # usually forward_starting_size = backward_starting_size = 1
+    forward_starting_size = dmrg_env.forward_starting_size
+    backward_starting_size = dmrg_env.backward_starting_size
+
     startingBlock = SpinBlock(dmrg_env)
     if forward:
         startingBlock.init_dot(True, 0, forward_starting_size, True)
-        if add_noninteracting_orbs and molecule_quantum_tot_spin != 0:
+        # dmrg_env.add_noninteracting_orbs is always True
+        if dmrg_env.add_noninteracting_orbs and molecule_quantum_tot_spin != 0:
             s = quanta.SpinQuantum()
             s.init(nparticle, spin, irrep_id) # fixme, nparticle =?= spin, see initblocks.C
             addstate = stateinfo.StateInfo()
@@ -176,7 +176,7 @@ def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
             newblk = SpinBlock(dmrg_env)
             newblk.default_op_components(False, startingBlock, dummyblock, \
                                          True, True)
-            newblk.BuildSumBlock(NO_PARTICLE_SPIN_NUMBER_CONSTRAINT,
+            newblk.BuildSumBlock(param.NO_PARTICLE_SPIN_NUMBER_CONSTRAINT,
                                  startingBlock, dummyblock)
             startingBlock = newblk
     else:
@@ -189,68 +189,33 @@ def InitStartingBlock(dmrg_env, forward=True, forward_starting_size=1,
 # haveNormops whether construct CRE_DESCOMP
 # haveCompops whether construct CRE_DESCOMP
 def InitNewSystemBlock(dmrg_env, system, systemDot, haveNormops=False, haveCompops=True):
-    direct = True # direct is obtained form dmrginp, true by default
-    storagetype = 0 # most case DISTRIBUTED_STORAGE, but we use local for testing
+    direct = dmrg_env.direct # direct is obtained form dmrginp, true by default
+    storagetype = 0 # mostly = DISTRIBUTED_STORAGE, but we use local for testing
 
     newsys = SpinBlock(dmrg_env)
     newsys.default_op_components(direct, system, systemDot, haveNormops, haveCompops)
-    newsys.BuildSumBlock(NO_PARTICLE_SPIN_NUMBER_CONSTRAINT, system, systemDot)
+    newsys.BuildSumBlock(param.NO_PARTICLE_SPIN_NUMBER_CONSTRAINT, system, systemDot)
     return newsys
 
-def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
-                            dot_with_sys, warmUp=False, onedot=True):
+def InitNewEnvironmentBlock(dmrg_env, isweep, environDot, system, systemDot, \
+                            dot_with_sys, warmUp=False):
     forward = (system.sites[0] == 0)
     if forward:
-        env_start_id = system.sites[-1]+dmrg_env.sys_add+dmrg_env.env_add + 1
+        env_start_id = system.sites[-1]+dmrg_env.sys_add \
+                + dmrg_env.env_add(isweep) + 1
         env_sites = range(env_start_id, dmrg_env.tot_sites)
     else:
-        env_start_id = system.sites[0]-dmrg_env.sys_add-dmrg_env.env_add - 1
+        env_start_id = system.sites[0]-dmrg_env.sys_add \
+                - dmrg_env.env_add(isweep) - 1
         env_sites = range(0, env_start_id+1)
 
-    #newenviron = SpinBlock(dmrg_env)
-    #if warmUp:
-    #    si = stateinfo.TensorProduct(system.stateInfo,
-    #                                 systemDot.stateInfo,
-    #                                 NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
-    #    si = stateinfo.CollectQuanta(si)
-    #    #TODO: maybe need to store environ newenviron for later use
-    #    if 0 and len(env_sites) == nexact: #nexact?
-    #        if dot_with_sys and onedot:
-    #            newenviron.default_op_components_compl(!forward)
-    #            newenviron.BuildTensorProductBlock(env_sites)
-    #        else:
-    #            envrion.default_op_components_compl(!forward)
-    #            envrion.BuildTensorProductBlock(env_sites)
-    #    else:
-    #        if dot_with_sys and onedot:
-    #            for_norm_ops = False
-    #            envblk = newenviron
-    #        else:
-    #            for_norm_ops = haveNormops
-    #            envblk = environ
-    #        if onedot:
-    #            envblk.BuildSlaterBlock(si, for_norm_ops)
-    #        else:
-    #            si = stateinfo.TensorProduct(si, environDot.stateInfo,
-    #                                         NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
-    #            si = stateinfo.CollectQuanta(si)
-    #            envblk.BuildSlaterBlock(si, for_norm_ops)
-    #else:
-    #    if dot_with_sys and onedot:
-    #        newenviron.load(env_sites[0], env_sites[-1], !forward)
-    #    else:
-    #        envrion.load(env_sites[0], env_sites[-1], !forward)
-
-    #if not (dot_wit_sys and onedot):
-    #    envrion.addAdditionalCompOps()
-    #    # initialize newenv as that did in sys-block
-    #    newenviron = InitNewSystemBlock(envrion, environDot)
-    #return environ, newenviron
-
-    forward_starting_size = backward_starting_size = 1
+    # usually forward_starting_size = backward_starting_size = 1
+    forward_starting_size = dmrg_env.forward_starting_size
+    backward_starting_size = dmrg_env.backward_starting_size
     nexact = forward_starting_size # or backward_starting_size
+
     environ = SpinBlock(dmrg_env)
-    if dot_with_sys and onedot:
+    if dot_with_sys and dmrg_env.onedot(isweep):
         newenviron = SpinBlock(dmrg_env)
         if warmUp:
             if len(env_sites) == nexact:
@@ -260,7 +225,7 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
-                                             NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
+                                             param.NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
                 si = stateinfo.CollectQuanta(si)
                 newenviron.BuildSlaterBlock(si, env_sites, False)
         else:
@@ -275,11 +240,11 @@ def InitNewEnvironmentBlock(dmrg_env, environDot, system, systemDot, \
             else:
                 si = stateinfo.TensorProduct(system.stateInfo,
                                              systemDot.stateInfo,
-                                             NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
+                                             param.NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
                 si = stateinfo.CollectQuanta(si)
-                if not onedot:
+                if not dmrg_env.onedot(isweep):
                     si = stateinfo.TensorProduct(si, environDot.stateInfo,
-                                                 NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
+                                                 param.NO_PARTICLE_SPIN_NUMBER_CONSTRAINT)
                     si = stateinfo.CollectQuanta(si)
                 environ.BuildSlaterBlock(si, env_sites, haveNormops)
         else:
@@ -294,7 +259,7 @@ def InitBigBlock(dmrg_env, newsys, newenv):
     big = SpinBlock(dmrg_env)
     big._raw.set_big_components() # TODO: direct access self.ops
     print 'start InitBigBlock', newsys.stateInfo.totalStates, newenv.stateInfo.totalStates
-    big.BuildSumBlock(PARTICLE_SPIN_NUMBER_CONSTRAINT, newsys, newenv)
+    big.BuildSumBlock(param.PARTICLE_SPIN_NUMBER_CONSTRAINT, newsys, newenv)
     return big
 
 

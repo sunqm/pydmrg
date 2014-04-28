@@ -44,14 +44,32 @@ class Wavefunction(object):
             raise OSError('file %s does not exist' % wfnfile)
         self._raw = _dmrg.NewRawWavefunction()
         self.stateInfo = stateinfo.StateInfo()
-        raw_si = self._raw.load(wfnfile)
+        left = stateinfo.StateInfo()
+        left.leftStateInfo = stateinfo.StateInfo()
+        left.rightStateInfo = stateinfo.StateInfo()
+        right = stateinfo.StateInfo()
+        right.leftStateInfo = stateinfo.StateInfo()
+        right.rightStateInfo = stateinfo.StateInfo()
+        self.stateInfo.leftStateInfo = left
+        self.stateInfo.rightStateInfo = right
+
+        raw_si, raw_left, raw_lleft, raw_lright, \
+                raw_right, raw_rleft, raw_rright = self._raw.load(wfnfile)
         self.stateInfo.refresh_by(raw_si)
+        left.refresh_by(raw_left)
+        left.leftStateInfo.refresh_by(raw_lleft)
+        left.rightStateInfo.refresh_by(raw_lright)
+        right.refresh_by(raw_right)
+        right.leftStateInfo.refresh_by(raw_rleft)
+        right.rightStateInfo.refresh_by(raw_rright)
+
         self.deltaQuantum = quanta.SpinQuantum()
         self.deltaQuantum.refresh_by(self._raw.get_deltaQuantum())
         self._sync_raw2self()
 
-    def save(self, start_id, end_id, root_id=0, prefix=None):
+    def save(self, stateInfo, start_id, end_id, root_id=0, prefix=None):
         #TODO:self._raw.sync:
+        #TODO: *stateInfo*
         #TODO: orbs 
         #TODO: deltaQuantum 
         #TODO: fermion 
@@ -67,7 +85,7 @@ class Wavefunction(object):
                 prefix = self._env.scratch_prefix + '/'
         wfnfile = '%swave-%d-%d.0.%d.tmp' \
                 % (prefix, start_id, end_id, root_id)
-        self._raw.save(wfnfile, self.stateInfo._this)
+        self._raw.save(wfnfile, stateInfo._raw)
 
     def refresh_by(self, rawfn):
         assert(isinstance(rawfn, _dmrg.RawWavefunction))

@@ -1,0 +1,5 @@
+2014-04-28:
+  * natural way to handle global variables in global.h, e.g. v_1, v_2
+  * direct access to dmrginp
+  * fake input parser
+  * restart

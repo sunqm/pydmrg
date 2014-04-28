@@ -23,20 +23,24 @@ class StateInfo(object):
         self.rightStateInfo = None
         self.unCollectedStateInfo = None
 
-    def refresh_by(self, rawstateinfo):
+    def refresh_by(self, rawstateinfo, with_left_right=False):
         assert(isinstance(rawstateinfo, _dmrg.RawStateInfo))
         self._raw = rawstateinfo
-        #FIXME: maybe have bug
+        self._sync_raw2self()
+        if with_left_right:
+            self.leftStateInfo = StateInfo()
+            self.leftStateInfo._raw = self._raw.leftStateInfo
+            self.leftStateInfo._sync_raw2self()
+            self.rightStateInfo = StateInfo()
+            self.rightStateInfo._raw = self._raw.rightStateInfo
+            self.rightStateInfo._sync_raw2self()
+        #FIXME: carefully sync leftStateInfo etc.
         #self.allowedQuanta = self._raw.get_whole_allowedQuanta()
-        #self.leftStateInfo = StateInfo()
-        #self.leftStateInfo._raw = self._raw.leftStateInfo
-        #self.rightStateInfo = StateInfo()
-        #self.rightStateInfo._raw = self._raw.leftStateInfo
         #self.leftUnMapQuanta = self._raw.leftUnMapQuanta
         #self.rightUnMapQuanta = self._raw.leftUnMapQuanta
-        self._sync_raw2self()
+        # rightStateInfo.leftStateInfo, rightStateInfo.rightStateInfo
 
-        #how to initialize:
+        #FIXME: how to initialize?
         # self.unCollectedStateInfo self.leftStateInfo self.rightStateInfo
 
     def init_by_spinquantum(self, n, sq, qs_lst):
@@ -57,9 +61,9 @@ class StateInfo(object):
         self.quanta = _SpinQuantumList(self)
         self.unBlockedIndex = [sum(self.quantaStates[:i]) \
                                for i,_ in enumerate(self.quantaStates)]
-        if self.leftStateInfo is not None \
-           and self.rightStateInfo is not None:
-            self.allowedQuanta = self._raw.get_whole_allowedQuanta()
+        #if self.leftStateInfo is not None \
+        #   and self.rightStateInfo is not None:
+        #    self.allowedQuanta = self._raw.get_whole_allowedQuanta()
 
     def get_quanta(self, quanta_id):
         assert(quanta_id < len(self.quantaStates))
@@ -112,6 +116,6 @@ def TensorProduct(a, b, constraint=0):
     constraint = 1 for PARTICLE_SPIN_NUMBER_CONSTRAINT
     '''
     c = StateInfo()
-    c.refresh_by(_dmrg.PyTensorProduct(a._raw, b._raw, constraint))
+    c.refresh_by(_dmrg.PyTensorProduct(a._raw, b._raw, constraint), True)
     return c
 

@@ -62,9 +62,10 @@ cdef extern from 'SpinQuantum.h' namespace 'SpinAdapted':
 
 cdef extern from 'StateInfo.h' namespace 'SpinAdapted':
     # StateInfo class holds
-    # some flags hasAllocatedMemory hasCollectedQuanta hasPreviousStateInfo
+    # some flags hasCollectedQuanta hasPreviousStateInfo
     # oldToNewState (maybe no use now)
     cdef cppclass StateInfo:
+        bool hasAllocatedMemory
         bool initialised
         StateInfo()
         StateInfo(int n, SpinQuantum *q, const int *qS)
@@ -140,6 +141,89 @@ cdef extern from 'guess_wavefunction.h' namespace 'SpinAdapted::GuessWave':
     void onedot_shufflesysdot(StateInfo& guessstateinfo, StateInfo& transposestateinfo,
                               Wavefunction& guesswf, Wavefunction& transposewf)
 
+cdef extern from "input.h" namespace "SpinAdapted":
+    cdef enum hamTypes: QUANTUM_CHEMISTRY, HUBBARD
+    cdef enum solveTypes: LANCZOS, DAVIDSON
+    cdef enum algorithmTypes: ONEDOT, TWODOT, TWODOT_TO_ONEDOT
+    cdef enum noiseTypes: RANDOM, EXCITEDSTATE
+    cdef enum calcType: DMRG, ONEPDM, TWOPDM, RESTART_TWOPDM, RESTART_ONEPDM, TINYCALC, FCI
+    cdef enum orbitalFormat: MOLPROFORM, DMRGFORM
+
+    cdef cppclass Input:
+        #vector[int] m_thrds_per_node
+        int m_norbs
+        int m_alpha
+        int m_beta
+        int m_Sz
+        #IrrepSpace m_total_symmetry_number
+        SpinQuantum m_molecule_quantum
+        int m_total_spin
+        int m_guess_permutations
+        vector[int] m_hf_occupancy
+        vector[double] m_weights
+        vector[int] m_sweep_iter_schedule
+        vector[int] m_sweep_state_schedule
+        vector[int] m_sweep_qstate_schedule
+        vector[double] m_sweep_tol_schedule
+        vector[double] m_sweep_noise_schedule
+        vector[double] m_sweep_additional_noise_schedule
+        bool m_schedule_type_default
+        int m_maxM
+        int m_integral_disk_storage_thresh
+        bool m_do_diis
+        double m_diis_error
+        int m_start_diis_iter
+        int m_diis_keep_states
+        double m_diis_error_tol
+        calcType m_calc_type
+        noiseTypes m_noise_type
+        hamTypes m_ham_type
+        int m_nroots
+        solveTypes m_solve_type
+        bool m_do_deriv
+        bool m_do_fci
+        bool m_do_cd
+        bool m_set_Sz
+        int m_maxiter
+        double m_screen_tol
+        bool m_no_transform
+        bool m_add_noninteracting_orbs
+        int m_nquanta
+        int m_sys_add
+        int m_env_add
+        int m_deflation_min_size
+        int m_deflation_max_size
+        algorithmTypes m_algorithm_type
+        int m_twodot_to_onedot_iter
+        #std::vector< std::map<SpinQuantum, int> > m_quantaToKeep
+        string m_save_prefix
+        string m_load_prefix
+        bool m_direct
+        vector[double] m_orbenergies
+        int m_maxj
+        int m_max_lanczos_dimension
+        double m_sweep_tol
+        bool m_restart
+        bool m_fullrestart
+        bool m_restart_warm
+        bool m_reset_iterations
+        vector[int] m_spin_vector
+        vector[int] m_spin_orbs_symmetry
+        int m_num_spatial_orbs
+        vector[int] m_spatial_to_spin
+        vector[int] m_spin_to_spatial
+        int m_outputlevel
+        double m_core_energy
+        orbitalFormat m_orbformat
+        bool m_reorder
+        string m_reorderfile
+        bool m_fiedler
+        vector[int] m_fiedlerorder
+        bool m_gaopt
+        vector[int] m_gaorder
+
+    Input dmrginp
+
 
 cdef extern from 'itrf.h':
     int save_rotmat(char *filerotmat, vector[Matrix] *mat)
@@ -178,6 +262,7 @@ cdef extern from 'itrf.h':
                                     int rquanta_id)
     int get_whole_StateInfo_allowedQuanta(StateInfo *s, char *tftab)
     void union_StateInfo_quanta(StateInfo *a, StateInfo *b)
+
 
 
 # RawAclass does not allocate memory for Aclass._this.  Its pointer _this only
@@ -370,11 +455,26 @@ cdef class NewRawWavefunction(RawWavefunction):
         self._this = new Wavefunction()
     def __dealloc__(self):
         del self._this
+        #TODO: call stateInfo.Free to release leftStateInfo, rightStateInfo, ...
     def load(self, wfnfile):
         #self.stateInfo = NewRawStateInfo()
         stateInfo = NewRawStateInfo()
+        stateInfo._this.hasAllocatedMemory = True
+        left = NewRawStateInfo()
+        leftleft = NewRawStateInfo()
+        leftright = NewRawStateInfo()
+        right = NewRawStateInfo()
+        rightleft = NewRawStateInfo()
+        rightright = NewRawStateInfo()
+        left._this.leftStateInfo = leftleft._this
+        left._this.rightStateInfo = leftright._this
+        stateInfo._this.leftStateInfo = left._this
+        right._this.leftStateInfo = rightleft._this
+        right._this.rightStateInfo = rightright._this
+        stateInfo._this.rightStateInfo = right._this
         load_wavefunction(wfnfile, self._this, stateInfo._this)
-        return stateInfo
+        return stateInfo, left, leftleft, leftright, \
+                right, rightleft, rightright
 
 
 cdef class RawMatrix:
@@ -403,8 +503,7 @@ cdef class NewRawRotationMatrix(RawRotationMatrix):
         self._this = new vector[Matrix]()
     def __dealloc__(self):
         del self._this
-    def load(self, filerotmat, nquanta):
-        self._this.resize(nquanta)
+    def load(self, filerotmat):
         load_rotmat(filerotmat, self._this)
 
 
@@ -412,11 +511,6 @@ cdef class NewRawRotationMatrix(RawRotationMatrix):
 #################################################
 #
 #################################################
-
-#def Pyinitialize_defaults(fcidump, prefix, sym):
-#    initialize_default_dmrginp(fcidump, prefix, sym)
-def Pyinitialize_defaults(inp_conf):
-    init_dmrginp(inp_conf)
 
 def PyTensorProduct(RawStateInfo a, RawStateInfo b, int constraint):
     c = NewRawStateInfo()
@@ -451,8 +545,8 @@ def Pysolve_wavefunction(RawSpinBlock big, nroots, dot_with_sys, warmUp,
     solution.resize(nroots)
     cdef vector[double] energies
     energies.resize(nroots)
-    cdef guessWaveTypes t = guesstype
-    solve_wavefunction(solution, energies, big._this[0], tol, t,
+    cdef guessWaveTypes gt = guesstype
+    solve_wavefunction(solution, energies, big._this[0], tol, gt,
                        onedot, dot_with_sys, warmUp, additional_noise)
     wfn = NewRawWavefunction()
     wfn._this[0] = solution[0]
@@ -461,6 +555,7 @@ def Pysolve_wavefunction(RawSpinBlock big, nroots, dot_with_sys, warmUp,
 def Pyonedot_shufflesysdot(RawStateInfo sguess, RawStateInfo stranspose,
                            RawWavefunction wfguess):
     wftranspose = NewRawWavefunction()
+    wftranspose._this[0] = wfguess._this[0]
     onedot_shufflesysdot(sguess._this[0], stranspose._this[0],
                          wfguess._this[0], wftranspose._this[0])
     return wftranspose
@@ -470,5 +565,134 @@ def Pyguess_rotmat(RawSpinBlock newsys, keptstates, keptqstates):
     guess_rotmat(rotmat._this, newsys._this, keptstates, keptqstates)
     return rotmat
 
+#def Pyinitialize_defaults(fcidump, prefix, sym):
+#    initialize_default_dmrginp(fcidump, prefix, sym)
+def Pyinitialize_defaults(inp_conf):
+    init_dmrginp(inp_conf)
+
 def Pyget_last_site_id():
     return get_last_site_id()
+
+def Pysync2dmrginp(dmrgenv):
+    #dmrginp.m_norbs =
+    dmrginp.m_alpha = (dmrgenv.nelec + dmrgenv.spin) / 2
+    dmrginp.m_beta = (dmrgenv.nelec - dmrgenv.spin) / 2
+    #dmrginp.m_Sz =
+    #dmrginp.m_total_spin = dmrgenv.spin
+    #dmrginp.m_guess_permutations =
+    #dmrginp.m_hf_occupancy =
+    dmrginp.m_weights = dmrgenv.weights
+    dmrginp.m_sweep_iter_schedule = dmrgenv.sweep_iter_schedule
+    dmrginp.m_sweep_state_schedule = dmrgenv.sweep_state_schedule
+    dmrginp.m_sweep_qstate_schedule = dmrgenv.sweep_qstate_schedule
+    dmrginp.m_sweep_tol_schedule = dmrgenv.davidson_tol_schedule
+    dmrginp.m_sweep_noise_schedule = dmrgenv.noise_schedule
+    dmrginp.m_sweep_additional_noise_schedule = dmrgenv.additional_noise
+    #dmrginp.m_schedule_type_default =
+    dmrginp.m_maxM = dmrgenv.maxM
+#    dmrginp.m_integral_disk_storage_thresh = dmrgenv.integral_disk_storage_thresh
+#    dmrginp.m_do_diis = dmrgenv.do_diis
+#    dmrginp.m_diis_error = dmrgenv.diis_error
+#    dmrginp.m_start_diis_iter = dmrgenv.start_diis_iter
+#    dmrginp.m_diis_keep_states = dmrgenv.diis_keep_states
+#    dmrginp.m_diis_error_tol = dmrgenv.diis_error_tol
+    dmrginp.m_calc_type = dmrgenv.calc_type
+    dmrginp.m_noise_type = dmrgenv.noise_type
+    dmrginp.m_ham_type = dmrgenv.ham_type
+    dmrginp.m_nroots = dmrgenv.nroots
+    dmrginp.m_solve_type = dmrgenv.solve_type
+    dmrginp.m_do_fci = dmrgenv.do_fci
+    dmrginp.m_do_cd = dmrgenv.do_cd
+    dmrginp.m_set_Sz = dmrgenv.set_Sz
+    dmrginp.m_maxiter = dmrgenv.maxiter
+    dmrginp.m_screen_tol = dmrgenv.screen_tol
+#    dmrginp.m_no_transform = dmrgenv.no_transform
+    dmrginp.m_add_noninteracting_orbs = dmrgenv.add_noninteracting_orbs
+    dmrginp.m_nquanta = dmrgenv.nquanta
+    dmrginp.m_sys_add = dmrgenv.sys_add
+    #dmrginp.m_env_add =
+    dmrginp.m_deflation_min_size = dmrgenv.deflation_min_size
+    dmrginp.m_deflation_max_size = dmrgenv.deflation_max_size
+    dmrginp.m_algorithm_type = dmrgenv.algorithm_type
+    dmrginp.m_twodot_to_onedot_iter = dmrgenv.onedot_start_cycle
+    dmrginp.m_save_prefix = dmrgenv.scratch_prefix
+    dmrginp.m_load_prefix = dmrgenv.cratch_prefix
+    dmrginp.m_direct = dmrgenv.direct
+#    dmrginp.m_orbenergies = dmrgenv.orbenergies
+#    dmrginp.m_maxj = dmrgenv.m_maxj
+    dmrginp.m_max_lanczos_dimension = dmrgenv.max_lanczos_dimension
+    dmrginp.m_sweep_tol = dmrgenv.sweep_tol
+    #dmrginp.m_restart =
+    #dmrginp.m_fullrestart =
+    #dmrginp.m_restart_warm =
+    #dmrginp.m_reset_iterations =
+#    dmrginp.m_spin_vector = dmrgenv.spin_vector
+    dmrginp.m_spin_orbs_symmetry = dmrgenv.spin_orbs_symmetry
+    dmrginp.m_num_spatial_orbs = dmrgenv.tot_sites
+    dmrginp.m_spatial_to_spin = dmrgenv.spatial_to_spin
+    dmrginp.m_spin_to_spatial = dmrgenv.spin_to_spatial
+    dmrginp.m_outputlevel = dmrgenv.outputlevel
+    dmrginp.m_core_energy = dmrgenv.core_energy
+    dmrginp.m_orbformat   = dmrgenv.orbformat
+    dmrginp.m_reorder     = dmrgenv.reorder
+    dmrginp.m_reorderfile = dmrgenv.reorderfile
+    dmrginp.m_fiedler      = dmrgenv.fiedler
+    dmrginp.m_fiedlerorder = dmrgenv.fiedlerorder
+    dmrginp.m_gaopt   = dmrgenv.gaopt
+    dmrginp.m_gaorder = dmrgenv.gaorder
+
+def Pysync_from_dmrginp(dmrgenv):
+    dmrgenv.nelec = dmrginp.m_alpha + dmrginp.m_beta
+    dmrgenv.spin  = dmrginp.m_alpha - dmrginp.m_beta
+    dmrgenv.weights = dmrginp.m_weights
+    dmrgenv.sweep_iter_schedule = dmrginp.m_sweep_iter_schedule
+    dmrgenv.sweep_state_schedule = dmrginp.m_sweep_state_schedule
+    dmrgenv.sweep_qstate_schedule = dmrginp.m_sweep_qstate_schedule
+    dmrgenv.davidson_tol_schedule = dmrginp.m_sweep_tol_schedule
+    dmrgenv.noise_schedule = dmrginp.m_sweep_noise_schedule
+    dmrgenv.additional_noise = dmrginp.m_sweep_additional_noise_schedule
+    dmrgenv.maxM = dmrginp.m_maxM
+#    dmrgenv.integral_disk_storage_thresh = dmrginp.m_integral_disk_storage_thresh
+#    dmrgenv.do_diis = dmrginp.m_do_diis
+#    dmrgenv.diis_error = dmrginp.m_diis_error
+#    dmrgenv.start_diis_iter = dmrginp.m_start_diis_iter
+#    dmrgenv.diis_keep_states = dmrginp.m_diis_keep_states
+#    dmrgenv.diis_error_tol = dmrginp.m_diis_error_tol
+    dmrgenv.calc_type = dmrginp.m_calc_type
+    dmrgenv.noise_type = dmrginp.m_noise_type
+    dmrgenv.ham_type = dmrginp.m_ham_type
+    dmrgenv.nroots = dmrginp.m_nroots
+    dmrgenv.solve_type = dmrginp.m_solve_type
+    dmrgenv.do_fci = dmrginp.m_do_fci
+    dmrgenv.do_cd = dmrginp.m_do_cd
+#    dmrgenv.set_Sz = dmrginp.m_set_Sz
+    dmrgenv.maxiter = dmrginp.m_maxiter
+    dmrgenv.screen_tol = dmrginp.m_screen_tol
+#    dmrgenv.no_transform = dmrginp.m_no_transform
+    dmrgenv.add_noninteracting_orbs = dmrginp.m_add_noninteracting_orbs
+    dmrgenv.nquanta = dmrginp.m_nquanta
+    dmrgenv.deflation_min_size = dmrginp.m_deflation_min_size
+    dmrgenv.deflation_max_size = dmrginp.m_deflation_max_size
+    dmrgenv.algorithm_type = dmrginp.m_algorithm_type
+    dmrgenv.onedot_start_cycle = dmrginp.m_twodot_to_onedot_iter
+    dmrgenv.scratch_prefix = dmrginp.m_save_prefix
+    #dmrgenv.load_prefix = dmrginp.m_load_prefix
+    dmrgenv.direct = dmrginp.m_direct
+#    dmrgenv.orbenergies = dmrginp.m_orbenergies
+#    dmrgenv.m_maxj = dmrginp.m_maxj
+    dmrgenv.max_lanczos_dimension = dmrginp.m_max_lanczos_dimension
+    dmrgenv.sweep_tol = dmrginp.m_sweep_tol
+#    dmrgenv.spin_vector = dmrginp.m_spin_vector
+    dmrgenv.spin_orbs_symmetry = dmrginp.m_spin_orbs_symmetry
+    dmrgenv.tot_sites = dmrginp.m_num_spatial_orbs
+    dmrgenv.spatial_to_spin = dmrginp.m_spatial_to_spin
+    dmrgenv.spin_to_spatial = dmrginp.m_spin_to_spatial
+    dmrgenv.outputlevel = dmrginp.m_outputlevel
+    dmrgenv.core_energy = dmrginp.m_core_energy
+    dmrgenv.orbformat = dmrginp.m_orbformat
+    dmrgenv.reorder = dmrginp.m_reorder
+    dmrgenv.reorderfile = dmrginp.m_reorderfile
+    dmrgenv.fiedler      = dmrginp.m_fiedler
+    dmrgenv.fiedlerorder = dmrginp.m_fiedlerorder
+    dmrgenv.gaopt   = dmrginp.m_gaopt
+    dmrgenv.gaorder = dmrginp.m_gaorder

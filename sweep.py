@@ -8,42 +8,38 @@ import stateinfo
 import quanta
 import wavefunction
 import rotationmat
+import param
 import _dmrg
 
-# guesswaveTypes
-BASIC = 0
-TRANSFORM = 1
-TRANSPOSE = 2
 
 def do_one(dmrg_env, isweep, forward=True, warmUp=False):
-    sys = spinblock.InitStartingBlock(dmrg_env, forward, \
-                                      dmrg_env.forward_starting_size, \
-                                      dmrg_env.backward_starting_size)
+    sys = spinblock.InitStartingBlock(dmrg_env, forward)
     sys.save(sys.sites[0], sys.sites[-1], forward)
 
     dot_with_sys = True
-    guesstype = BASIC
-    for iblkcyc in range(dmrg_env.max_blk_cyc):
-        print 'Block Iteration =', iblkcyc, ' forawd/backward', forward
-        sys, e = block_cycle(dmrg_env, isweep, sys, dot_with_sys, guesstype,
-                             warmUp, onedot=False)
-        print 'Block Iteration = %d finish, stateInfo='%iblkcyc, sys.stateInfo.totalStates
+    for iblkcyc in range(dmrg_env.max_block_cycle(isweep)):
+        print 'Sweep = ', isweep, 'Block Iteration =', iblkcyc, \
+                ' forawd =', forward, \
+                'guesstype =', dmrg_env.guesstype(warmUp, isweep, iblkcyc)
+        sys, e = block_cycle(dmrg_env, sys, isweep, iblkcyc, dot_with_sys, warmUp)
+        #print 'Block Iteration = %d finish, stateInfo='%iblkcyc, sys.stateInfo.totalStates
         if forward:
             dot_with_sys = (sys.get_complementary_sites()[0] < dmrg_env.tot_sites/2)
         else:
             dot_with_sys = (sys.sites[0]-1 >= dmrg_env.tot_sites/2)
         sys.save(sys.sites[0], sys.sites[-1], forward)
 
-        #FIXME: save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM
+        #FIXME: should we save_sweepParams_options_flags() for restart or ONEPDM/TWOPDM ?
+    print 'finish do_one for sweep', isweep
     return e
 
-def block_cycle(dmrg_env, isweep, sys, dot_with_sys=True, guesstype=BASIC,
-                warmUp=False, onedot=True):
+def block_cycle(dmrg_env, sys, isweep, iblk, dot_with_sys=True, warmUp=False):
+    guesstype = dmrg_env.guesstype(warmUp, isweep, iblk)
     if False and warmUp and some_symmetry:
         newsys, energy = Startup(sys)
     else:
-        newsys, energy = BlockAndDecimate(dmrg_env, isweep, sys, dot_with_sys,
-                                          warmUp, onedot, guesstype)
+        newsys, energy = BlockAndDecimate(dmrg_env, sys, isweep, \
+                                          dot_with_sys, warmUp, guesstype)
         print 'newsys of block_cycle ',newsys.stateInfo.totalStates
 
     print 'output_state_summay'
@@ -60,13 +56,13 @@ def Startup(dmrg_env, system):
     rmat = rotationmat.RotationMatrix()
     rmat.refresh_by(_dmrg.Pyguess_rotmat(newsys._raw, keptstates, keptqstates))
     newsys.transform_operators(rmat)
+    rmat.save(newsys.sites[0], newsys.sites[-1])
     return newsys
 
 # system is restored somewhere
-# switch off onedot in the beginning
 # warmUp == useSlater
-def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
-                     onedot=True, guesstype=BASIC):
+def BlockAndDecimate(dmrg_env, system, isweep, dot_with_sys, warmUp=False,
+                     guesstype=param.BASIC):
     forward = (system.sites[0] == 0)
 
     if forward:
@@ -77,12 +73,14 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
         env_start_id = sys_start_id - dmrg_env.sys_add
     sysDot = spinblock.SpinBlock(dmrg_env)
     sysDot.init_dot(forward, sys_start_id, dmrg_env.sys_add)
-    if not onedot:
-        envDot = spinblock.SpinBlock(dmrg_env)
-        envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
 
-    print 'before InitNewSystemBlock',system.stateInfo.totalStates, sysDot.stateInfo.totalStates
-    if onedot and not dot_with_sys:
+    print 'before InitNewSystemBlock',\
+            system.stateInfo.totalStates, sysDot.stateInfo.totalStates
+    print 'system sites', system.sites
+    if not dmrg_env.onedot(isweep):
+        envDot = spinblock.SpinBlock(dmrg_env)
+        envDot.init_dot(forward, env_start_id, dmrg_env.env_add(isweep))
+    if dmrg_env.onedot(isweep) and not dot_with_sys:
         newsys = system
     else:
         #for i in range(system.stateInfo.quanta.size):
@@ -94,20 +92,15 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
                                               dot_with_sys)
 
     print 'before InitNewEnvironmentBlock',\
-            system.stateInfo.totalStates, sysDot.stateInfo.totalStates,\
-            envDot.stateInfo.totalStates
-    if onedot:
+            system.stateInfo.totalStates, sysDot.stateInfo.totalStates
+    if dmrg_env.onedot(isweep):
         environ, newenv = \
-                spinblock.InitNewEnvironmentBlock(dmrg_env, sysDot, system,
-                                                  sysDot, dot_with_sys,
-                                                  warmUp, onedot)
+                spinblock.InitNewEnvironmentBlock(dmrg_env, isweep, sysDot, system,
+                                                  sysDot, dot_with_sys, warmUp)
     else:
-        #envDot = spinblock.SpinBlock(dmrg_env)
-        #envDot.init_dot(forward, env_start_id, dmrg_env.env_add)
         environ, newenv = \
-                spinblock.InitNewEnvironmentBlock(dmrg_env, envDot, system,
-                                                  sysDot, dot_with_sys,
-                                                  warmUp, onedot)
+                spinblock.InitNewEnvironmentBlock(dmrg_env, isweep, envDot, system,
+                                                  sysDot, dot_with_sys, warmUp)
 
     #            environ  newenv  sys  newsys
     #  d &&  o   F        F       F    T
@@ -119,10 +112,10 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
     if dot_with_sys:
             system.set_loopblock(False) # why change system?
             newsys.set_loopblock(True)
-            if onedot:
+            if dmrg_env.onedot(isweep):
                 environ.set_loopblock(False)
             newenv.set_loopblock(False)
-    elif onedot:
+    elif dmrg_env.onedot(isweep):
         newsys.set_loopblock(False)
         environ.set_loopblock(True)
         newenv.set_loopblock(True)
@@ -136,40 +129,23 @@ def BlockAndDecimate(dmrg_env, isweep, system, dot_with_sys, warmUp=False,
     print 'finish InitBigBlock, start RenormaliseFrom'
 
     newsys, energy, rotmat = RenormaliseFrom(dmrg_env, isweep, newsys, big, system,
-                                             sysDot, environ, envDot, dot_with_sys,
-                                             warmUp, onedot, guesstype)
+                                             sysDot, environ, dot_with_sys,
+                                             warmUp, guesstype)
     # TODO: according Block, environ and newenv need to be cleared here
     newsys.transform_operators(rotmat)
     return newsys, energy
 
 
-#def RenormaliseFrom(sweepParams.set_lowest_energy(),
-#                    sweepParams.set_lowest_energy_spins()
-#                    sweepParams.set_lowest_error()
-#                    sweepParams.get_keep_states(),
-#                    sweepParams.get_keep_qstates(),
-#                    sweepParams.get_davidson_tol(),
-#                    big,
-#                    sweepParams.get_guesstype(),
-#                    sweepParams.get_noise(),
-#                    sweepParams.get_additional_noise(),
-#                    sweepParams.get_onedot(),
-#                    system,
-#                    systemDot,
-#                    environmentDot,
-#                    environment,
-#                    dot_with_sys,
-#                    useSlater, sweepParams.get_sweep_iter()):
-def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ, envDot,
-                    dot_with_sys, warmUp=False, onedot=True, guesstype=BASIC):
-    tol = 1e-8
-    additional_noise = 1e-6
+def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ,
+                    dot_with_sys, warmUp=False, guesstype=param.BASIC):
+    keep_states, _, keep_qstates, tol, noise, additional_noise = \
+            dmrg_env.sweep_schedule(isweep)
     nroots = 1 # TODO: dynamically decide nroots, see input.C Input::nroots
     rawfn, energy = _dmrg.Pysolve_wavefunction(big._raw, nroots, dot_with_sys,
-                                               warmUp, onedot, tol, guesstype,
+                                               warmUp, dmrg_env.onedot(isweep),
+                                               tol, guesstype,
                                                additional_noise)
-    print onedot, dot_with_sys
-    if onedot and not dot_with_sys:
+    if dmrg_env.onedot(isweep) and not dot_with_sys:
         print 'after solving wfn, newsys'
         newsys = spinblock.InitNewSystemBlock(dmrg_env, system, sysDot,
                                               False)
@@ -178,16 +154,17 @@ def RenormaliseFrom(dmrg_env, isweep, newsys, big, system, sysDot, environ, envD
         print 'after solving wfn, shfflesysdot'
         rawfn = _dmrg.Pyonedot_shufflesysdot(big.stateInfo._raw,
                                              newbig.stateInfo._raw, rawfn)
-        # TODO: according Block, envDot needs to be cleared here
     else:
         newbig = big
     wfn = wavefunction.Wavefunction(dmrg_env)
     wfn.refresh_by(rawfn)
-    keep_states, _, keep_qstates, _, noise, _ = dmrg_env.sweep_schedule(isweep)
     rotmat = rotationmat.update_rotmat(dmrg_env, wfn, newsys, newbig,
                                        keep_states, keep_qstates, noise)
 
-    #FIXME: save wavefunction and rotation mat for later use
+    print 'save rotation matrix and wfn'
+    start_id = newbig.leftBlock.sites[0]
+    end_id = newbig.leftBlock.sites[-1]
+    rotmat.save(start_id, end_id, 0)
+    wfn.save(newbig.stateInfo, start_id, end_id, 0)
 
     return newsys, energy, rotmat
-
